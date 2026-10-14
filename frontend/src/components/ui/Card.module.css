@@ -1,0 +1,81 @@
+.card {
+  position: relative;
+  min-width: 0;
+  border-radius: var(--r-xl);
+}
+
+.md {
+  padding: clamp(18px, 2vw, 24px);
+}
+
+.lg {
+  padding: clamp(20px, 3vw, 32px);
+}
+
+.sm {
+  padding: 16px;
+}
+
+.none {
+  padding: 0;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+
+  .none > & {
+    padding: clamp(18px, 2vw, 24px) clamp(18px, 2vw, 24px) 0;
+  }
+}
+
+.titleWrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.iconBox {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.titles {
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--fs-md);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  margin-top: 2px;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.body {
+  min-width: 0;
+}

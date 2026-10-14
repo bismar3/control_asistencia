@@ -1,0 +1,19 @@
+.progress {
+  position: fixed;
+  z-index: var(--z-toast);
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--grad-brand);
+    box-shadow: 0 0 12px var(--accent-glow);
+    animation: indeterminate 1.1s var(--ease-in-out) infinite;
+  }
+}

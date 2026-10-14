@@ -1,0 +1,55 @@
+.toggle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--text-2);
+  background: var(--fill-2);
+  overflow: hidden;
+  transition:
+    background-color var(--dur-2),
+    color var(--dur-2),
+    transform var(--dur-1);
+
+  &:hover {
+    color: var(--text);
+    background: var(--fill-3);
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+
+  & svg {
+    position: absolute;
+    transition:
+      transform var(--dur-4) var(--ease-spring),
+      opacity var(--dur-3) var(--ease-out);
+  }
+}
+
+.sun {
+  color: #f59e0b;
+  transform: rotate(0) scale(1);
+}
+
+.moon {
+  color: #a5b4fc;
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.4);
+}
+
+.dark {
+  & .sun {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.4);
+  }
+
+  & .moon {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
+}

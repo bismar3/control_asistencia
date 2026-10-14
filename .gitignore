@@ -1,0 +1,21 @@
+﻿# Python / Virtualenv
+venv/
+*/venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+media/
+staticfiles/
+
+# Node / Frontend
+node_modules/
+*/node_modules/
+dist/
+.env.local
+.env.*.local
+
+# IDEs y SO
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

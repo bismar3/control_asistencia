@@ -1,0 +1,73 @@
+.picker {
+  position: relative;
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: var(--fill-2);
+}
+
+.option {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 30px;
+  border-radius: var(--r-pill);
+  color: var(--text-3);
+  transition:
+    background-color var(--dur-2) var(--ease-out),
+    color var(--dur-2),
+    transform var(--dur-1);
+  -webkit-tap-highlight-color: transparent;
+
+  &:hover:not(:disabled) {
+    color: var(--tone);
+    background: var(--tone-soft);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.9);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+.ok {
+  --tone: var(--ok);
+  --tone-soft: var(--ok-soft);
+  --tone-fill: var(--ok-fill);
+}
+
+.bad {
+  --tone: var(--bad);
+  --tone-soft: var(--bad-soft);
+  --tone-fill: var(--bad-fill);
+}
+
+.warn {
+  --tone: var(--warn);
+  --tone-soft: var(--warn-soft);
+  --tone-fill: var(--warn-fill);
+}
+
+.selected,
+.selected:hover:not(:disabled) {
+  color: #fff;
+  background: var(--tone-fill);
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--tone-fill) 70%, transparent);
+  animation: pop-in var(--dur-3) var(--ease-spring);
+}
+
+.busy .option {
+  opacity: 0.45;
+}
+
+.spinner {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}

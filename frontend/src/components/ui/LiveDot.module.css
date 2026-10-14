@@ -1,0 +1,34 @@
+.dot {
+  position: relative;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--c);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--c);
+    animation: pulse-ring 1.8s var(--ease-out) infinite;
+  }
+}
+
+.ok {
+  --c: var(--ok-fill);
+}
+
+.accent {
+  --c: var(--accent);
+}
+
+.bad {
+  --c: var(--bad-fill);
+}
+
+.neutral {
+  --c: var(--neutral-fill);
+}

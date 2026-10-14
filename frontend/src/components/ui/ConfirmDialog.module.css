@@ -1,0 +1,14 @@
+.content {
+  display: grid;
+  gap: 16px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.code {
+  font-family: var(--font-mono);
+  color: var(--text);
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--fill-2);
+}

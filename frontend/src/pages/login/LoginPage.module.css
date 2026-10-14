@@ -1,0 +1,326 @@
+.page {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  padding: max(24px, var(--safe-top)) var(--gutter) 0;
+}
+
+.themeCorner {
+  position: fixed;
+  z-index: 5;
+  top: max(16px, var(--safe-top));
+  right: 16px;
+  padding: 4px;
+  border-radius: 50%;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--blur-1));
+  backdrop-filter: blur(var(--blur-1));
+  border: 1px solid var(--glass-edge);
+}
+
+.layout {
+  width: min(100%, 1180px);
+  margin: auto;
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  align-items: center;
+  gap: clamp(32px, 6vw, 96px);
+  padding-block: 32px;
+}
+
+/* ---------- Columna de marca ---------- */
+.hero {
+  display: grid;
+  gap: 32px;
+  justify-items: start;
+}
+
+.hero .logo {
+  width: min(100%, 380px);
+  animation:
+    pop-in 0.9s var(--ease-spring) backwards,
+    float 7s 0.9s ease-in-out infinite;
+}
+
+.heroText {
+  display: grid;
+  gap: 16px;
+  animation: fade-up var(--dur-4) 0.15s var(--ease-out) backwards;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.title {
+  font-size: clamp(2.6rem, 1.6rem + 3.2vw, 4.25rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.lead {
+  max-width: 44ch;
+  font-size: var(--fs-lg);
+  color: var(--text-2);
+}
+
+.features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+
+  & li {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 14px;
+    border-radius: var(--r-pill);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text-2);
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(var(--blur-1));
+    backdrop-filter: blur(var(--blur-1));
+    border: 1px solid var(--glass-edge);
+    box-shadow: inset 0 1px 0 var(--glass-shine);
+    animation: fade-up var(--dur-4) var(--ease-out) backwards;
+    animation-delay: calc(0.3s + var(--i) * 80ms);
+
+    & svg {
+      color: var(--accent);
+    }
+  }
+}
+
+/* ---------- Tarjeta de acceso ---------- */
+.card {
+  display: grid;
+  gap: 22px;
+  width: min(100%, 460px);
+  justify-self: end;
+  padding: clamp(24px, 4vw, 38px);
+  border-radius: 34px;
+  animation: modal-in var(--dur-4) 0.1s var(--ease-spring) backwards;
+}
+
+.clock {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: var(--fill-1);
+  border: 1px solid var(--border);
+}
+
+.clockTime {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.clockDate {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  text-align: right;
+}
+
+.cardHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.cardTitle {
+  font-size: var(--fs-2xl);
+  letter-spacing: -0.03em;
+}
+
+.cardSubtitle {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.formWrap {
+  animation: fade-up var(--dur-3) var(--ease-out);
+}
+
+.form {
+  display: grid;
+  gap: 18px;
+}
+
+.reveal {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: var(--text-3);
+  transition:
+    color var(--dur-2),
+    background-color var(--dur-2);
+
+  &:hover {
+    color: var(--text);
+    background: var(--fill-2);
+  }
+}
+
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: var(--fs-sm);
+  font-weight: 550;
+  color: var(--bad);
+  background: var(--bad-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 20%, transparent);
+  animation: shake 0.5s var(--ease-out);
+
+  & svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  background: var(--fill-1);
+  border: 1px solid var(--border);
+
+  & strong {
+    color: var(--text);
+  }
+}
+
+.statusOk {
+  color: var(--text-2);
+}
+
+.statusWarn {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.statusBad {
+  color: var(--bad);
+  background: var(--bad-soft);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 18px;
+  padding: 16px 0 max(20px, var(--safe-bottom));
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+/* ---------- Responsive ---------- */
+@media (width < 960px) {
+  .layout {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 28px;
+    padding-block: 24px;
+  }
+
+  .hero {
+    justify-items: center;
+    text-align: center;
+    gap: 22px;
+  }
+
+  .hero .logo {
+    width: min(64vw, 260px);
+  }
+
+  .eyebrow {
+    justify-self: center;
+  }
+
+  .lead {
+    margin-inline: auto;
+    font-size: var(--fs-md);
+  }
+
+  .features {
+    justify-content: center;
+  }
+
+  .card {
+    justify-self: center;
+  }
+}
+
+@media (width < 520px) {
+  .page {
+    padding-top: max(16px, var(--safe-top));
+  }
+
+  .layout {
+    gap: 22px;
+    padding-block: 8px 16px;
+  }
+
+  .hero {
+    gap: 16px;
+  }
+
+  /* En el teléfono el formulario debe verse sin desplazarse */
+  .hero .logo {
+    width: 148px;
+    border-radius: 26px;
+  }
+
+  .eyebrow,
+  .lead,
+  .features {
+    display: none;
+  }
+
+  .title {
+    font-size: 2.1rem;
+  }
+
+  .clock {
+    justify-content: center;
+  }
+
+  .clockDate {
+    display: none;
+  }
+
+  .card {
+    gap: 18px;
+    border-radius: 28px;
+  }
+}

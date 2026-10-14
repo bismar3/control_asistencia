@@ -1,0 +1,89 @@
+.meter {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--size);
+  height: var(--size);
+  flex-shrink: 0;
+
+  & svg {
+    transform: rotate(-90deg);
+    overflow: visible;
+  }
+}
+
+.ok {
+  --meter: var(--ok-fill);
+}
+
+.warn {
+  --meter: var(--warn-fill);
+}
+
+.bad {
+  --meter: var(--bad-fill);
+}
+
+.neutral {
+  --meter: var(--neutral-fill);
+}
+
+.accent {
+  --meter: var(--chart-bar);
+}
+
+.track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--meter) 16%, transparent);
+}
+
+.progress {
+  fill: none;
+  stroke: var(--meter);
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--meter) 55%, transparent));
+  transition: stroke-dashoffset 1s var(--ease-out);
+  animation: meter-fill 1.2s var(--ease-out) backwards;
+}
+
+@keyframes meter-fill {
+  from {
+    stroke-dashoffset: var(--circumference);
+  }
+}
+
+.center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+  gap: 2px;
+}
+
+.value {
+  font-size: calc(var(--size) * 0.24);
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  line-height: 1;
+
+  & small {
+    margin-left: 1px;
+    font-size: 0.45em;
+    font-weight: 650;
+    color: var(--text-3);
+    letter-spacing: 0;
+  }
+}
+
+.label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.caption {
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}

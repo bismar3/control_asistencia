@@ -1,0 +1,141 @@
+.zone {
+  position: relative;
+  border-radius: var(--r-xl);
+  background:
+    linear-gradient(var(--glass-strong), var(--glass-strong)) padding-box,
+    conic-gradient(from var(--angle), var(--border-2), color-mix(in srgb, var(--accent) 45%, transparent), var(--border-2)) border-box;
+  border: 1.5px dashed transparent;
+  transition:
+    background-color var(--dur-2),
+    transform var(--dur-2) var(--ease-out),
+    box-shadow var(--dur-2);
+}
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 34px 20px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+
+  & strong {
+    margin-top: 6px;
+    font-size: var(--fs-base);
+    color: var(--text);
+  }
+
+  & small {
+    margin-top: 6px;
+    font-size: var(--fs-xs);
+    color: var(--text-3);
+  }
+}
+
+.link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.cloud {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 20px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  transition: transform var(--dur-3) var(--ease-spring);
+}
+
+.zone:hover .cloud {
+  transform: translateY(-3px) scale(1.04);
+}
+
+.dragging {
+  border-style: solid;
+  transform: scale(1.01);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 14%, transparent);
+  animation: spin-angle 2.4s linear infinite;
+  background:
+    linear-gradient(color-mix(in srgb, var(--accent) 8%, var(--glass-solid)), color-mix(in srgb, var(--accent) 8%, var(--glass-solid))) padding-box,
+    conic-gradient(from var(--angle), var(--accent-2), var(--chart-bar), #8b5cf6, var(--accent-2)) border-box;
+
+  & .cloud {
+    transform: translateY(-4px) scale(1.08);
+  }
+}
+
+.hasFile {
+  border-style: solid;
+}
+
+.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  animation: fade-in var(--dur-3) var(--ease-out);
+}
+
+.fileIcon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  color: #fff;
+  background: linear-gradient(135deg, #059669, #047857);
+  box-shadow: 0 8px 18px -8px rgb(5 150 105 / 0.7);
+}
+
+.fileInfo {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+
+  & strong {
+    font-size: var(--fs-sm);
+  }
+
+  & span {
+    font-size: var(--fs-xs);
+    color: var(--text-3);
+  }
+}
+
+.fileActions {
+  display: flex;
+  gap: 6px;
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--text-2);
+  background: var(--fill-2);
+  transition: background-color var(--dur-2);
+
+  &:hover:not(:disabled) {
+    background: var(--fill-3);
+    color: var(--text);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+  }
+}

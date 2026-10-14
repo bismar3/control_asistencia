@@ -1,0 +1,211 @@
+/* ==========================================================================
+   Design tokens · CODERS — Control de Asistencia
+   Tema claro en :root; el tema oscuro solo redefine los roles de color.
+   ========================================================================== */
+
+/* Propiedades animables (permiten animar gradientes cónicos con CSS puro) */
+@property --angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@property --shine {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: -60%;
+}
+
+:root {
+  /* ---------- Marca (derivada del logo CODERS) ---------- */
+  --brand-cyan: #22d3ee;
+  --brand-blue: #3b82f6;
+  --brand-indigo: #6366f1;
+  --brand-navy: #010712;
+  --grad-brand: linear-gradient(135deg, #22d3ee 0%, #3b82f6 52%, #6366f1 100%);
+  --grad-primary: linear-gradient(135deg, #0891b2 0%, #2563eb 55%, #4f46e5 100%);
+  --grad-text: linear-gradient(100deg, #0891b2 0%, #2563eb 45%, #7c3aed 100%);
+
+  /* ---------- Tipografía ---------- */
+  --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Space Grotesk Variable', 'Inter Variable', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  --fs-2xs: 0.6875rem;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8125rem;
+  --fs-base: 0.9375rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.375rem;
+  --fs-2xl: 1.75rem;
+  --fs-3xl: 2.25rem;
+  --fs-hero: clamp(3rem, 2.2rem + 3vw, 4rem);
+
+  /* ---------- Formas (esquinas continuas estilo iOS) ---------- */
+  --r-xs: 8px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 26px;
+  --r-2xl: 32px;
+  --r-pill: 999px;
+
+  /* ---------- Espaciado ---------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 32px;
+  --sp-8: 40px;
+  --sp-9: 56px;
+
+  /* ---------- Movimiento ---------- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --dur-3: 380ms;
+  --dur-4: 600ms;
+
+  /* ---------- Materiales de vidrio ---------- */
+  --blur-1: 12px;
+  --blur-2: 22px;
+  --blur-3: 40px;
+  --saturate: 170%;
+
+  /* ---------- Layout ---------- */
+  --sidebar-w: 276px;
+  --topbar-h: 68px;
+  --content-max: 1380px;
+  --gutter: clamp(16px, 2.5vw, 32px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --z-sticky: 20;
+  --z-sidebar: 40;
+  --z-overlay: 60;
+  --z-toast: 90;
+
+  /* ================= Tema claro ================= */
+  color-scheme: light;
+  --bg: #eef2f9;
+  --bg-solid: #ffffff;
+  --text: #0b1220;
+  --text-2: #475569;
+  --text-3: #5b6b84;
+  --border: rgb(15 23 42 / 0.08);
+  --border-2: rgb(15 23 42 / 0.14);
+
+  --glass: rgb(255 255 255 / 0.58);
+  --glass-strong: rgb(255 255 255 / 0.8);
+  --glass-solid: rgb(255 255 255 / 0.94);
+  --glass-edge: rgb(255 255 255 / 0.78);
+  --glass-shine: rgb(255 255 255 / 0.95);
+  --shadow-1: 0 1px 2px rgb(15 23 42 / 0.05), 0 4px 12px -4px rgb(15 23 42 / 0.08);
+  --shadow-2: 0 1px 2px rgb(15 23 42 / 0.04), 0 12px 32px -12px rgb(15 23 42 / 0.16), 0 28px 60px -28px rgb(15 23 42 / 0.14);
+  --shadow-3: 0 30px 80px -20px rgb(15 23 42 / 0.35);
+
+  --fill-1: rgb(15 23 42 / 0.035);
+  --fill-2: rgb(15 23 42 / 0.06);
+  --fill-3: rgb(15 23 42 / 0.1);
+
+  --accent: #2563eb;
+  --accent-2: #0891b2;
+  --accent-soft: rgb(37 99 235 / 0.1);
+  --accent-glow: rgb(37 99 235 / 0.38);
+
+  --aurora-a: #67e8f9;
+  --aurora-b: #93c5fd;
+  --aurora-c: #c4b5fd;
+  --aurora-d: #a7f3d0;
+  --aurora-opacity: 0.6;
+  --dot: rgb(15 23 42 / 0.07);
+
+  /* Estados: el texto cumple AA sobre su propio tinte */
+  --ok: #047857;
+  --ok-soft: rgb(16 185 129 / 0.13);
+  --ok-fill: #10b981;
+  --bad: #be123c;
+  --bad-soft: rgb(244 63 94 / 0.12);
+  --bad-fill: #f43f5e;
+  --warn: #92400e;
+  --warn-soft: rgb(245 158 11 / 0.16);
+  --warn-fill: #f59e0b;
+  --info: #0369a1;
+  --info-soft: rgb(14 165 233 / 0.13);
+  --info-fill: #0ea5e9;
+  --neutral: #475569;
+  --neutral-soft: rgb(100 116 139 / 0.13);
+  --neutral-fill: #94a3b8;
+
+  /* Gráficos (paleta validada: ver README) */
+  --chart-grid: rgb(15 23 42 / 0.07);
+  --chart-axis: rgb(15 23 42 / 0.16);
+  --chart-bar: #2563eb;
+  --chart-bar-hover: #1d4ed8;
+  --chart-track: rgb(37 99 235 / 0.1);
+  --chart-today: #0891b2;
+}
+
+/* ================= Tema oscuro ================= */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #050914;
+  --bg-solid: #0b1222;
+  --text: #e8eefc;
+  --text-2: #a7b4cc;
+  --text-3: #8592ad;
+  --border: rgb(148 163 184 / 0.12);
+  --border-2: rgb(148 163 184 / 0.2);
+
+  --glass: rgb(12 19 37 / 0.55);
+  --glass-strong: rgb(12 19 37 / 0.76);
+  --glass-solid: rgb(11 17 33 / 0.95);
+  --glass-edge: rgb(255 255 255 / 0.09);
+  --glass-shine: rgb(255 255 255 / 0.09);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 14px -6px rgb(0 0 0 / 0.5);
+  --shadow-2: 0 1px 2px rgb(0 0 0 / 0.25), 0 16px 40px -14px rgb(0 0 0 / 0.65), 0 30px 70px -30px rgb(0 0 0 / 0.6);
+  --shadow-3: 0 30px 90px -20px rgb(0 0 0 / 0.8);
+
+  --fill-1: rgb(255 255 255 / 0.035);
+  --fill-2: rgb(255 255 255 / 0.06);
+  --fill-3: rgb(255 255 255 / 0.1);
+
+  --accent: #38bdf8;
+  --accent-2: #22d3ee;
+  --accent-soft: rgb(56 189 248 / 0.13);
+  --accent-glow: rgb(56 189 248 / 0.35);
+
+  --aurora-a: #0891b2;
+  --aurora-b: #2563eb;
+  --aurora-c: #7c3aed;
+  --aurora-d: #0d9488;
+  --aurora-opacity: 0.58;
+  --dot: rgb(148 163 184 / 0.09);
+
+  --ok: #34d399;
+  --ok-soft: rgb(52 211 153 / 0.14);
+  --ok-fill: #0a9c6c;
+  --bad: #fb7185;
+  --bad-soft: rgb(251 113 133 / 0.14);
+  --bad-fill: #e5395f;
+  --warn: #fbbf24;
+  --warn-soft: rgb(251 191 36 / 0.14);
+  --warn-fill: #c98500;
+  --info: #7dd3fc;
+  --info-soft: rgb(56 189 248 / 0.14);
+  --info-fill: #0ea5e9;
+  --neutral: #a7b4cc;
+  --neutral-soft: rgb(148 163 184 / 0.14);
+  --neutral-fill: #64748b;
+
+  --chart-grid: rgb(148 163 184 / 0.1);
+  --chart-axis: rgb(148 163 184 / 0.22);
+  --chart-bar: #3b82f6;
+  --chart-bar-hover: #60a5fa;
+  --chart-track: rgb(96 165 250 / 0.12);
+  --chart-today: #22d3ee;
+}

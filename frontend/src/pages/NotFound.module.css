@@ -1,0 +1,41 @@
+.page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.card {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(100%, 460px);
+  padding: 40px 28px;
+  border-radius: var(--r-2xl);
+  text-align: center;
+  animation: modal-in var(--dur-4) var(--ease-spring) backwards;
+}
+
+.mark {
+  animation: float 5s ease-in-out infinite;
+}
+
+.code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+
+  & span {
+    color: var(--accent-2);
+  }
+}
+
+.title {
+  font-size: var(--fs-2xl);
+}
+
+.text {
+  margin-bottom: 8px;
+  color: var(--text-3);
+}

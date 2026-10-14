@@ -1,0 +1,205 @@
+.wrap {
+  --size: 196px;
+  --tone: var(--chart-bar);
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: calc(var(--size) + 90px);
+  height: calc(var(--size) + 90px);
+  margin-inline: auto;
+}
+
+/* Ondas que invitan a tocar (solo cuando se puede marcar) */
+.rings {
+  position: absolute;
+  inset: 45px;
+  pointer-events: none;
+
+  & span {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--accent-2) 55%, transparent);
+    box-shadow: 0 0 24px -4px color-mix(in srgb, var(--accent-2) 50%, transparent);
+    animation: pulse-ring 2.7s var(--ease-out) infinite;
+    animation-delay: var(--delay);
+  }
+}
+
+.button {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  color: #fff;
+  background: var(--grad-primary);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.32),
+    inset 0 -14px 30px rgb(15 23 42 / 0.28),
+    0 24px 50px -16px var(--accent-glow),
+    0 0 0 10px color-mix(in srgb, var(--chart-bar) 10%, transparent);
+  transition:
+    transform var(--dur-3) var(--ease-spring),
+    box-shadow var(--dur-3) var(--ease-out),
+    background var(--dur-3);
+  -webkit-tap-highlight-color: transparent;
+
+  /* Reflejo especular superior (efecto cristal) */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 7%;
+    left: 18%;
+    right: 18%;
+    height: 38%;
+    border-radius: 50% 50% 45% 45%;
+    background: linear-gradient(to bottom, rgb(255 255 255 / 0.4), rgb(255 255 255 / 0));
+    pointer-events: none;
+  }
+
+  &:not(:disabled):hover {
+    transform: scale(1.04);
+    box-shadow:
+      inset 0 2px 0 rgb(255 255 255 / 0.35),
+      inset 0 -14px 30px rgb(15 23 42 / 0.25),
+      0 30px 60px -16px var(--accent-glow),
+      0 0 0 14px color-mix(in srgb, var(--chart-bar) 12%, transparent);
+  }
+
+  &:not(:disabled):active {
+    transform: scale(0.95);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+.face {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  text-align: center;
+}
+
+.fingerprint {
+  filter: drop-shadow(0 0 10px rgb(255 255 255 / 0.45));
+}
+
+.label {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.time {
+  margin-top: -4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  opacity: 0.9;
+}
+
+/* --- Registrando: borde cónico giratorio --- */
+.marking .button {
+  animation: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    background: conic-gradient(from var(--angle), transparent 0 60%, #22d3ee 80%, #fff 92%, transparent);
+    mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+    animation: spin-angle 0.9s linear infinite;
+  }
+}
+
+/* --- Presente --- */
+.done .button {
+  background: linear-gradient(145deg, #10b981, #047857);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.3),
+    inset 0 -14px 30px rgb(2 44 34 / 0.3),
+    0 24px 50px -16px rgb(16 185 129 / 0.6),
+    0 0 0 10px rgb(16 185 129 / 0.12);
+  animation: pop-in 0.6s var(--ease-spring);
+}
+
+.check {
+  width: 64px;
+  height: 64px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 22;
+  stroke-dashoffset: 22;
+  filter: drop-shadow(0 0 8px rgb(255 255 255 / 0.5));
+  animation: draw 0.6s 0.2s var(--ease-out) forwards;
+}
+
+/* --- Justificado --- */
+.justified .button {
+  background: linear-gradient(145deg, #f59e0b, #b45309);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.3),
+    inset 0 -14px 30px rgb(69 26 3 / 0.3),
+    0 24px 50px -16px rgb(245 158 11 / 0.55),
+    0 0 0 10px rgb(245 158 11 / 0.12);
+}
+
+/* --- Sin clase hoy: cristal esmerilado deshabilitado --- */
+.none .button,
+.closed .button {
+  color: var(--text-3);
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: blur(var(--blur-2));
+  backdrop-filter: blur(var(--blur-2));
+  border: 1px solid var(--glass-edge);
+  box-shadow:
+    inset 0 2px 0 var(--glass-shine),
+    var(--shadow-2),
+    0 0 0 10px var(--fill-1);
+
+  &::before {
+    opacity: 0.4;
+  }
+
+  & .label {
+    color: var(--text-2);
+  }
+}
+
+/* --- Celebración --- */
+.burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  & span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 9px;
+    height: 9px;
+    margin: -4.5px;
+    border-radius: 50%;
+    background: var(--c);
+    box-shadow: 0 0 10px var(--c);
+    animation: burst 1s var(--ease-out) forwards;
+  }
+}
+
+@media (width < 520px) {
+  .wrap {
+    --size: 172px;
+  }
+}

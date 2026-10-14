@@ -1,0 +1,385 @@
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+/* Especificidad doble: debe ganarle al position: relative base de <Card> sin depender del orden de carga del CSS */
+.layout > .calendarCard {
+  position: sticky;
+  top: 96px;
+}
+
+.monthNav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---------- Calendario mensual ---------- */
+.calendar {
+  display: grid;
+  gap: 8px;
+}
+
+.weekdays,
+.days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.weekdays span {
+  text-align: center;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.day {
+  position: relative;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 4px;
+  aspect-ratio: 1 / 0.92;
+  min-height: 52px;
+  padding: 8px 2px;
+  border-radius: 16px;
+  color: var(--text-2);
+  background: var(--fill-1);
+  transition:
+    transform var(--dur-2) var(--ease-spring),
+    background-color var(--dur-2),
+    box-shadow var(--dur-2);
+  animation: scale-in var(--dur-3) var(--ease-out) backwards;
+  animation-delay: calc(var(--i) * 8ms);
+
+  &:hover {
+    transform: scale(1.05);
+    background: var(--fill-2);
+  }
+}
+
+.outside {
+  opacity: 0.35;
+}
+
+.dayNumber {
+  font-family: var(--font-display);
+  font-size: var(--fs-sm);
+  font-weight: 650;
+}
+
+.dayBadge {
+  max-width: 100%;
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.hasClass {
+  color: var(--text);
+}
+
+.timing-pasada {
+  background: var(--neutral-soft);
+
+  & .dayBadge {
+    color: var(--text-2);
+    background: var(--glass-solid);
+  }
+}
+
+.timing-hoy {
+  color: #fff;
+  background: linear-gradient(145deg, #10b981, #047857);
+  box-shadow: 0 10px 22px -10px rgb(16 185 129 / 0.7);
+
+  & .dayBadge {
+    color: #fff;
+    background: rgb(255 255 255 / 0.22);
+  }
+
+  &:hover {
+    background: linear-gradient(145deg, #10b981, #047857);
+  }
+}
+
+.timing-futura {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 45%, transparent);
+
+  & .dayBadge {
+    color: var(--accent);
+  }
+}
+
+.isToday:not(.hasClass) {
+  box-shadow: inset 0 0 0 2px var(--accent);
+
+  & .dayNumber {
+    color: var(--accent);
+  }
+}
+
+.calendarLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 16px;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+
+  & li {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+}
+
+.legendDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+}
+
+.legendPast {
+  background: var(--neutral-fill);
+}
+
+.legendToday {
+  background: var(--ok-fill);
+}
+
+.legendFuture {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+/* ---------- Lista de clases ---------- */
+.pad {
+  padding: 18px;
+}
+
+.classList {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  max-height: 760px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.group {
+  display: grid;
+  gap: 8px;
+}
+
+.groupTitle {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.groupItems {
+  display: grid;
+  gap: 8px;
+}
+
+.classItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px 10px 10px;
+  border-radius: 18px;
+  background: var(--fill-1);
+  border: 1px solid var(--border);
+  transition: background-color var(--dur-2);
+
+  &:hover {
+    background: var(--fill-2);
+  }
+}
+
+.classToday {
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+  background: color-mix(in srgb, var(--ok-fill) 8%, transparent);
+}
+
+.dateBlock {
+  display: grid;
+  justify-items: center;
+  width: 54px;
+  padding: 6px 0;
+  border-radius: 14px;
+  line-height: 1.1;
+  background: var(--glass-solid);
+  box-shadow: var(--shadow-1);
+
+  & span {
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-3);
+  }
+
+  & strong {
+    font-family: var(--font-display);
+    font-size: var(--fs-xl);
+  }
+
+  &.timing-hoy span,
+  &.timing-hoy strong {
+    color: #fff;
+  }
+}
+
+.classInfo {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+
+  & > strong {
+    font-size: var(--fs-sm);
+  }
+
+  & > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--fs-xs);
+    color: var(--text-3);
+  }
+}
+
+.classRate {
+  display: grid !important;
+  grid-template-columns: minmax(60px, 160px) auto;
+  align-items: center;
+  gap: 8px !important;
+  margin-top: 4px;
+
+  & strong {
+    font-size: var(--fs-xs);
+    color: var(--text-2);
+  }
+}
+
+.classActions {
+  display: flex;
+  gap: 2px;
+}
+
+.iconAction {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  color: var(--text-3);
+  transition:
+    background-color var(--dur-2),
+    color var(--dur-2);
+
+  &:hover {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+}
+
+.iconDanger:hover {
+  color: var(--bad);
+  background: var(--bad-soft);
+}
+
+/* ---------- Formulario ---------- */
+.form {
+  display: grid;
+  gap: 16px;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (width < 1200px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .layout > .calendarCard {
+    position: relative;
+    top: auto;
+  }
+
+  .classList {
+    max-height: none;
+  }
+}
+
+@media (width < 1000px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (width < 560px) {
+  .classItem {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'date info actions'
+      'date tag tag';
+  }
+
+  .classItem > :nth-child(1) {
+    grid-area: date;
+  }
+
+  .classItem > :nth-child(2) {
+    grid-area: info;
+  }
+
+  .classItem > :nth-child(3) {
+    grid-area: tag;
+    justify-self: start;
+  }
+
+  .classItem > :nth-child(4) {
+    grid-area: actions;
+  }
+
+  .day {
+    min-height: 44px;
+    border-radius: 12px;
+  }
+
+  .dayBadge {
+    display: none;
+  }
+
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+}

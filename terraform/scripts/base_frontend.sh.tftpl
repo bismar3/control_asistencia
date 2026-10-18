@@ -1,0 +1,56 @@
+#!/bin/bash
+# Instalación base del servidor FRONTEND: Nginx
+set -e
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get install -y nginx unzip
+
+mkdir -p /var/www/app
+echo '<h1>Esperando el despliegue del frontend...</h1>' > /var/www/app/index.html
+
+cat > /etc/nginx/sites-available/default <<'EOF'
+server {
+    listen 80 default_server;
+    root /var/www/app;
+    index index.html;
+
+    # Permite subir archivos Excel grandes
+    client_max_body_size 20M;
+
+    # React: cualquier ruta (/login, /dashboard...) carga index.html
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API GraphQL -> Django
+    location /graphql {
+        proxy_pass http://${backend_ip}:${puerto_backend};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Archivos subidos (importaciones Excel) -> Django
+    location /media {
+        proxy_pass http://${backend_ip}:${puerto_backend};
+        proxy_set_header Host $host;
+    }
+
+    # Panel de administración de Django
+    location /admin {
+        proxy_pass http://${backend_ip}:${puerto_backend};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    location /static {
+        proxy_pass http://${backend_ip}:${puerto_backend};
+        proxy_set_header Host $host;
+    }
+}
+EOF
+
+systemctl enable nginx
+systemctl restart nginx

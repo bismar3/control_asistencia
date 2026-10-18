@@ -1,0 +1,14 @@
+# =====================================================================
+# Saltos de línea: estos archivos se ejecutan o se leen en Linux,
+# así que deben tener SIEMPRE saltos LF, en cualquier PC.
+# =====================================================================
+
+# Scripts que se ejecutan en los servidores Ubuntu
+*.sh     text eol=lf
+*.tftpl  text eol=lf
+
+# Archivos de Terraform
+*.tf     text eol=lf
+*.hcl    text eol=lf
+*.tfvars text eol=lf
+*.example text eol=lf

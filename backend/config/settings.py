@@ -10,22 +10,22 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os  # ← CAMBIO 1: permite leer variables del servidor
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
+# ← CAMBIO 2: en AWS usa los valores del servidor; en tu PC, los de siempre
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-@x2sb*2f&fu==v3j7nyd3xgw330e-o0y_f$)xrcq(5ta=v(5nn'
+)
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-@x2sb*2f&fu==v3j7nyd3xgw330e-o0y_f$)xrcq(5ta=v(5nn'
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
 
 
 # Application definition
@@ -82,17 +82,15 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/6.1/ref/settings/#databases
-
+# ← CAMBIO 3: la base de datos se lee del servidor (o usa tus datos locales)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'asist',
-        'USER': 'tokio',
-        'PASSWORD': '1204',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.environ.get('DB_NAME', 'asist'),
+        'USER': os.environ.get('DB_USER', 'tokio'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', '1204'),
+        'HOST': os.environ.get('DB_HOST', 'localhost'),
+        'PORT': os.environ.get('DB_PORT', '5432'),
         'OPTIONS': {
             'client_encoding': 'UTF8',
         },
@@ -150,9 +148,12 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True
 
+# ← CAMBIO 4: permite formularios/peticiones desde la IP pública del frontend en AWS
+CSRF_TRUSTED_ORIGINS = [
+    o for o in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if o
+]
+
 # GraphQL Schema Configuration
 GRAPHENE = {
     'SCHEMA': 'config.schema.schema',
 }
-
-

@@ -1,0 +1,17 @@
+# =====================================================================
+# .gitignore de Terraform (según la tabla del docente)
+# =====================================================================
+
+# --- .terraform/ → NO va a Git (plugins de cientos de MB) ---
+.terraform/
+
+# --- terraform.tfstate y .backup → NUNCA van a Git (tienen contraseñas) ---
+*.tfstate
+*.tfstate.*
+
+# --- *.tfvars → solo SIN secretos ---
+# El terraform.tfvars.example SÍ se sube (no termina en .tfvars)
+*.tfvars
+
+# --- .build/ → NO va a Git (zips que genera Terraform) ---
+.build/

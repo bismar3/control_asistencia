@@ -1,0 +1,23 @@
+# =====================================================================
+# PLANTILLA de variables de Terraform
+#
+# Cómo usarla:
+#   1. Copia este archivo y renómbralo como "terraform.tfvars"
+#   2. Reemplaza los valores de ejemplo por los reales
+#
+# El "terraform.tfvars" real NO se sube a Git porque tiene secretos.
+# Los valores secretos se piden al equipo por un medio PRIVADO
+# (en persona o por mensaje directo), nunca por GitHub.
+# =====================================================================
+
+# IPs que pueden entrar por SSH (las de todo el equipo), con /32 al final.
+# Para saber tu IP: curl.exe https://checkip.amazonaws.com
+ips_permitidas = ["0.0.0.0/32", "0.0.0.0/32"]
+
+# Contraseña del usuario de PostgreSQL en el servidor backend.
+# Debe ser LA MISMA para todo el equipo → pedirla al equipo.
+db_password = "PEDIR_AL_EQUIPO"
+
+# SECRET_KEY de Django para producción.
+# Debe ser LA MISMA para todo el equipo → pedirla al equipo.
+django_secret_key = "PEDIR_AL_EQUIPO"

@@ -1,6 +1,7 @@
 ﻿# Python / Virtualenv
 venv/
 */venv/
+.venv/
 __pycache__/
 *.py[cod]
 *.sqlite3
@@ -13,6 +14,9 @@ node_modules/
 dist/
 .env.local
 .env.*.local
+
+# Variables secretas  ← NUEVO
+.env
 
 # IDEs y SO
 .vscode/

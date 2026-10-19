@@ -139,3 +139,89 @@ Las IPs públicas cambian cada vez que se apagan y encienden los servidores.
 - **No ejecutar** `terraform destroy` sin acuerdo del equipo: borra los servidores
   y la base de datos.
 - **No borrar** el bucket del state ni la carpeta `bootstrap/`.
+
+---
+
+## VM con Pulumi (Python)
+
+Además de Terraform, el proyecto incluye una VM creada con **Pulumi** usando **Python**,
+en la carpeta `pulumi/`. Es independiente de los servidores de la aplicación: crea su
+propia red (`10.30.0.0/16`), un Security Group que abre el puerto 80 y una EC2 Ubuntu
+con Nginx que muestra una página de prueba.
+
+El *state* de Pulumi se guarda en **el mismo bucket S3** que el de Terraform, en su
+propia carpeta:
+
+```
+control-asist-tfstate-487003832843/
+├── control-asist/terraform.tfstate        ← state de Terraform
+└── pulumi/.pulumi/stacks/...              ← state de Pulumi (stack "dev")
+```
+
+### Comparación con Terraform
+
+| | Terraform | Pulumi |
+|---|---|---|
+| Lenguaje | HCL (`.tf`) | Python (`__main__.py`) |
+| Ver cambios | `terraform plan` | `pulumi preview` |
+| Crear / actualizar | `terraform apply` | `pulumi up` |
+| Borrar | `terraform destroy` | `pulumi destroy` |
+| Dónde se indica el state | `backend.tf` | `pulumi login s3://...` |
+
+### Requisitos
+
+- [Pulumi](https://www.pulumi.com/docs/install/) (`winget install Pulumi.Pulumi`)
+- Python 3.10 o superior
+- AWS CLI configurado con un usuario IAM de la cuenta del proyecto
+- La **frase de cifrado** del stack (`PULUMI_CONFIG_PASSPHRASE`). **Se pide al equipo
+  por un medio privado; nunca se escribe en el repositorio.**
+
+### Primera vez
+
+```powershell
+cd pulumi
+
+# 1. Configurar la terminal (repetir cada vez que se abre una terminal nueva)
+$env:AWS_PROFILE = "control-asist"                 # perfil con acceso a la cuenta del proyecto
+$env:PULUMI_CONFIG_PASSPHRASE = "PEDIR_AL_EQUIPO"  # frase de cifrado del stack
+$env:PULUMI_SELF_MANAGED_STATE_LOCKING = "1"       # activa el candado del state
+
+# 2. Conectarse al state en S3
+pulumi login "s3://control-asist-tfstate-487003832843/pulumi?region=us-east-2"
+
+# 3. Instalar las librerías de Python (la carpeta venv no está en Git)
+pulumi install
+
+# 4. Elegir el stack y comprobar
+pulumi stack select dev
+pulumi preview
+```
+
+### Uso diario
+
+```powershell
+cd pulumi
+$env:AWS_PROFILE = "control-asist"
+$env:PULUMI_CONFIG_PASSPHRASE = "PEDIR_AL_EQUIPO"
+$env:PULUMI_SELF_MANAGED_STATE_LOCKING = "1"
+
+pulumi preview      # ver qué va a cambiar
+pulumi up           # crear la VM (elegir "yes" con las flechas)
+pulumi stack output # ver la IP y la URL
+pulumi destroy      # borrar la VM al terminar (no borrar el stack)
+```
+
+Al terminar `pulumi up`, abrir la `url` con `http://` delante: debe mostrar
+**"VM creada con Pulumi"**. Esperar 1 o 2 minutos si todavía no carga (Nginx se está
+instalando).
+
+### Qué archivos de `pulumi/` van a Git
+
+| Archivo | ¿A Git? | Motivo |
+|---|---|---|
+| `__main__.py` | Sí | El código de la infraestructura |
+| `Pulumi.yaml` | Sí | Nombre y datos del proyecto |
+| `Pulumi.dev.yaml` | Sí | Configuración del stack (región). Su `encryptionsalt` no es secreto |
+| `requirements.txt` | Sí | Librerías de Python necesarias |
+| `venv/` | **No** | Librerías instaladas; se regeneran con `pulumi install` |
+| Frase de cifrado | **Nunca** | Sin ella no se puede abrir el state |

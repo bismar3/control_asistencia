@@ -1,0 +1,148 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: VM en AWS creada con CloudFormation y configurada con cloud-init
+
+# =====================================================================
+# PARÁMETROS
+# =====================================================================
+Parameters:
+  IpPermitida:
+    Type: String
+    Description: Tu IP publica con /32 al final, para entrar por SSH
+    AllowedPattern: ^(\d{1,3}\.){3}\d{1,3}/32$
+    ConstraintDescription: Debe ser una IP con /32 al final
+
+  # Reemplaza al hueco __HERRAMIENTA__ del archivo compartido
+  Herramienta:
+    Type: String
+    Default: CloudFormation
+    Description: Nombre de la herramienta que se muestra en la pagina
+
+  # La imagen más reciente de Ubuntu 24.04 (se busca sola)
+  ImagenUbuntu:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+
+# =====================================================================
+# RECURSOS
+# =====================================================================
+Resources:
+
+  # Portero (sin VpcId: AWS lo crea en la VPC por defecto)
+  PorteroWeb:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: cloud-init-cloudformation-sg
+      GroupDescription: Web publica (80) y SSH desde mi IP
+      SecurityGroupIngress:
+        - Description: HTTP desde cualquier lugar
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - Description: SSH solo desde mi IP
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref IpPermitida
+      Tags:
+        - Key: Name
+          Value: cloud-init-cloudformation-sg
+
+  # Seguridad: IMDSv2 obligatorio
+  PlantillaSeguridad:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: cloud-init-cloudformation-imdsv2
+      LaunchTemplateData:
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required
+
+  # La VM
+  Vm:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImagenUbuntu
+      InstanceType: t3.micro
+      KeyName: control-asist-llave
+      SecurityGroupIds:
+        - !GetAtt PorteroWeb.GroupId
+      LaunchTemplate:
+        LaunchTemplateId: !Ref PlantillaSeguridad
+        Version: !GetAtt PlantillaSeguridad.LatestVersionNumber
+      # Seguridad: disco cifrado
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp3
+            Encrypted: true
+      Tags:
+        - Key: Name
+          Value: cloud-init-cloudformation
+      # ⭐ CLOUD-INIT: el mismo contenido de cloud-config.yaml.
+      #    !Sub reemplaza ${Herramienta} por "CloudFormation".
+      UserData:
+        Fn::Base64: !Sub |
+          #cloud-config
+          # Mismo contenido que ../cloud-config.yaml
+
+          # 1. Zona horaria de Bolivia
+          timezone: America/La_Paz
+
+          # 2. Actualizar la lista de paquetes e instalar programas
+          package_update: true
+          packages:
+            - nginx
+            - htop
+            - tree
+
+          # 3. Crear un usuario nuevo con permisos de administrador
+          users:
+            - default
+            - name: devops
+              gecos: Usuario creado por cloud-init
+              groups: sudo
+              shell: /bin/bash
+              sudo: ALL=(ALL) NOPASSWD:ALL
+
+          # 4. Escribir archivos (la pagina web y el mensaje de bienvenida)
+          write_files:
+            - path: /var/www/html/index.html
+              permissions: "0644"
+              content: |
+                <!doctype html>
+                <html lang="es">
+                <head><meta charset="utf-8"><title>cloud-init - ${Herramienta}</title></head>
+                <body style="font-family:sans-serif;text-align:center;margin-top:80px">
+                  <h1>VM creada con ${Herramienta}</h1>
+                  <p>Configurada automaticamente con <b>cloud-init</b></p>
+                  <p>Proyecto control_asistencia - UAGRM</p>
+                </body>
+                </html>
+            - path: /etc/motd
+              content: |
+                =============================================
+                 Servidor configurado con cloud-init
+                 Creado con: ${Herramienta}
+                =============================================
+
+          # 5. Comandos que se ejecutan al final
+          runcmd:
+            - systemctl enable --now nginx
+            - echo "cloud-init termino OK con ${Herramienta}" > /root/cloud-init-ok.txt
+
+          # 6. Mensaje final en el log de cloud-init
+          final_message: "cloud-init termino en $UPTIME segundos"
+
+# =====================================================================
+# SALIDAS
+# =====================================================================
+Outputs:
+  Url:
+    Description: Abre esta direccion en el navegador
+    Value: !Sub "http://${Vm.PublicIp}"
+
+  Ssh:
+    Description: Comando para entrar por SSH
+    Value: !Sub "ssh -i ~/.ssh/id_ed25519 ubuntu@${Vm.PublicIp}"

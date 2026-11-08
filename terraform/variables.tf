@@ -56,13 +56,15 @@ variable "django_secret_key" {
 
 # ---------------- PostgreSQL (vive en el servidor backend) ----------------
 variable "db_nombre" {
-  type    = string
-  default = "asist"
+  description = "Nombre de la base de datos PostgreSQL del sistema de asistencia"
+  type        = string
+  default     = "asist"
 }
 
 variable "db_usuario" {
-  type    = string
-  default = "asist_user"
+  description = "Usuario de PostgreSQL que usa Django para conectarse a la base de datos"
+  type        = string
+  default     = "asist_user"
 }
 
 variable "db_password" {

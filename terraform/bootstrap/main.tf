@@ -22,7 +22,15 @@ provider "aws" {
 data "aws_caller_identity" "yo" {}
 
 # El bucket donde vivirá el state
+# Excepción (Trivy AWS-0089): los access logs requieren otro bucket y generan costo.
+#trivy:ignore:AWS-0089
 resource "aws_s3_bucket" "tfstate" {
+  # checkov:skip=CKV_AWS_18: Bucket privado de uso interno del equipo; los access logs requieren otro bucket y generan costo
+  # checkov:skip=CKV_AWS_144: La replicacion entre regiones duplica el costo; el versionado ya protege el state
+  # checkov:skip=CKV_AWS_145: Ya esta cifrado con AES256 (SSE-S3); KMS genera costo adicional por cada solicitud
+  # checkov:skip=CKV2_AWS_61: No se borran versiones automaticamente para poder recuperar cualquier state anterior
+  # checkov:skip=CKV2_AWS_62: No se necesitan notificaciones de eventos; solo Terraform y Pulumi usan este bucket
+
   bucket = "control-asist-tfstate-${data.aws_caller_identity.yo.account_id}"
 
   # Protección: Terraform se niega a borrar este bucket por accidente
@@ -46,6 +54,8 @@ resource "aws_s3_bucket_versioning" "tfstate" {
 }
 
 # Cifrado: el state tiene contraseñas, así que se guarda cifrado
+# Excepción (Trivy AWS-0132): ya está cifrado con AES256 (SSE-S3); KMS cobra por cada solicitud.
+#trivy:ignore:AWS-0132
 resource "aws_s3_bucket_server_side_encryption_configuration" "tfstate" {
   bucket = aws_s3_bucket.tfstate.id
 

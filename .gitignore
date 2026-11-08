@@ -23,3 +23,15 @@ dist/
 .idea/
 Thumbs.db
 .DS_Store
+
+# Secretos e infraestructura (agregado)
+*.pem
+id_ed25519
+id_ed25519.pub
+*credentials*.csv
+*accessKeys*.csv
+*.tfvars
+*.tfstate
+*.tfstate.*
+.terraform/
+.build/

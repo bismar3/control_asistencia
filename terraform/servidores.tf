@@ -21,7 +21,14 @@ resource "aws_key_pair" "llave" {
 }
 
 # ======================= SERVIDOR BACKEND =======================
+# Riesgo aceptado (Trivy AWS-0131): el disco se creó sin cifrar. Cifrarlo obliga a
+# recrear el servidor y perder la base de datos. Mejora pendiente: migrar a disco cifrado.
+#trivy:ignore:AWS-0131
 resource "aws_instance" "backend" {
+  # checkov:skip=CKV_AWS_126: El monitoreo detallado cuesta dinero; el basico (5 min) es suficiente para el proyecto
+  # checkov:skip=CKV_AWS_135: Las instancias t3 ya vienen optimizadas para EBS por defecto
+  # checkov:skip=CKV2_AWS_41: El servidor no usa servicios de AWS; sin rol IAM se aplica minimo privilegio
+
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.tipo_instancia
   subnet_id              = aws_subnet.publica.id
@@ -36,6 +43,12 @@ resource "aws_instance" "backend" {
     volume_type = "gp3"
   }
 
+  # Seguridad: obliga a usar IMDSv2 (corrige CKV_AWS_79)
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+  }
+
   # No reemplazar el servidor si sale otra imagen de Ubuntu
   # o si cambia el script de instalación inicial
   lifecycle {
@@ -46,7 +59,14 @@ resource "aws_instance" "backend" {
 }
 
 # ======================= SERVIDOR FRONTEND =======================
+# Riesgo aceptado (Trivy AWS-0131): el disco se creó sin cifrar. Cifrarlo obliga a
+# recrear el servidor. Mejora pendiente: migrar a disco cifrado.
+#trivy:ignore:AWS-0131
 resource "aws_instance" "frontend" {
+  # checkov:skip=CKV_AWS_126: El monitoreo detallado cuesta dinero; el basico (5 min) es suficiente para el proyecto
+  # checkov:skip=CKV_AWS_135: Las instancias t3 ya vienen optimizadas para EBS por defecto
+  # checkov:skip=CKV2_AWS_41: El servidor no usa servicios de AWS; sin rol IAM se aplica minimo privilegio
+
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.tipo_instancia
   subnet_id              = aws_subnet.publica.id
@@ -62,6 +82,12 @@ resource "aws_instance" "frontend" {
   root_block_device {
     volume_size = 8
     volume_type = "gp3"
+  }
+
+  # Seguridad: obliga a usar IMDSv2 (corrige CKV_AWS_79)
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
   }
 
   lifecycle {

@@ -1,0 +1,7 @@
+name: cloud-init-vm
+description: VM en AWS creada con Pulumi y configurada con cloud-init
+runtime:
+  name: python
+  options:
+    toolchain: pip
+    virtualenv: venv

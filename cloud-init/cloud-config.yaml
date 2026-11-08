@@ -1,0 +1,54 @@
+#cloud-config
+# =====================================================================
+# Archivo de cloud-init COMPARTIDO por Terraform, Pulumi y CloudFormation.
+# Se ejecuta UNA vez, al encender la VM por primera vez.
+# __HERRAMIENTA__ se reemplaza por el nombre de la herramienta que crea la VM.
+# =====================================================================
+
+# 1. Zona horaria de Bolivia
+timezone: America/La_Paz
+
+# 2. Actualizar la lista de paquetes e instalar programas
+package_update: true
+packages:
+  - nginx
+  - htop
+  - tree
+
+# 3. Crear un usuario nuevo con permisos de administrador
+users:
+  - default
+  - name: devops
+    gecos: Usuario creado por cloud-init
+    groups: sudo
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+
+# 4. Escribir archivos (la página web y el mensaje de bienvenida)
+write_files:
+  - path: /var/www/html/index.html
+    permissions: "0644"
+    content: |
+      <!doctype html>
+      <html lang="es">
+      <head><meta charset="utf-8"><title>cloud-init - __HERRAMIENTA__</title></head>
+      <body style="font-family:sans-serif;text-align:center;margin-top:80px">
+        <h1>VM creada con __HERRAMIENTA__</h1>
+        <p>Configurada automaticamente con <b>cloud-init</b></p>
+        <p>Proyecto control_asistencia - UAGRM</p>
+      </body>
+      </html>
+  - path: /etc/motd
+    content: |
+      =============================================
+       Servidor configurado con cloud-init
+       Creado con: __HERRAMIENTA__
+      =============================================
+
+# 5. Comandos que se ejecutan al final
+runcmd:
+  - systemctl enable --now nginx
+  - echo "cloud-init termino OK con __HERRAMIENTA__" > /root/cloud-init-ok.txt
+
+# 6. Mensaje final en el log de cloud-init
+final_message: "cloud-init termino en $UPTIME segundos"

@@ -1,10 +1,16 @@
 # Consulta las zonas disponibles de Ohio (no crea nada)
 data "aws_availability_zones" "disponibles" {
+  # checkov:skip=CKV_AWS_394: Solo es una consulta; usamos siempre la primera zona y la region esta fija (us-east-2)
+
   state = "available"
 }
 
 # La red privada propia del proyecto
+# Excepción (Trivy AWS-0178): los Flow Logs requieren CloudWatch y cuestan dinero.
+#trivy:ignore:AWS-0178
 resource "aws_vpc" "principal" {
+  # checkov:skip=CKV2_AWS_11: Los VPC Flow Logs requieren CloudWatch y cuestan dinero; no se justifican en un proyecto academico
+
   cidr_block           = "10.20.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
@@ -20,7 +26,11 @@ resource "aws_internet_gateway" "igw" {
 }
 
 # Subred pública donde vivirán los dos servidores
+# Excepción (Trivy AWS-0164): subred pública a propósito; no usamos NAT ni balanceador para no gastar.
+#trivy:ignore:AWS-0164
 resource "aws_subnet" "publica" {
+  # checkov:skip=CKV_AWS_130: Subred publica a proposito; los servidores necesitan IP publica (no usamos NAT ni balanceador para no generar costos)
+
   vpc_id                  = aws_vpc.principal.id
   cidr_block              = "10.20.1.0/24"
   availability_zone       = data.aws_availability_zones.disponibles.names[0]

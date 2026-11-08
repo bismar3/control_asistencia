@@ -1,7 +1,10 @@
 """
-VM en AWS creada con Pulumi (Python).
+VMs en AWS creadas con Pulumi (Python).
 Tarea: "Aprovisionar una VM usando Pulumi".
 El state de este proyecto se guarda en el mismo bucket S3 que el de Terraform.
+
+Ventaja de Pulumi frente a Terraform: al ser Python, podemos usar un ciclo
+"for" para crear una VM por cada integrante del equipo.
 """
 
 import pulumi
@@ -9,9 +12,11 @@ import pulumi_aws as aws
 
 proyecto = "control-asist-pulumi"
 
+# Una VM por cada integrante. Para agregar a alguien, solo añade su nombre aquí.
+integrantes = ["selena", "bismark"]
+
 # ---------------------------------------------------------------------
 # 1) Imagen: busca la versión más reciente de Ubuntu 24.04 (no crea nada)
-#    Equivale al bloque  data "aws_ami" "ubuntu"  de Terraform
 # ---------------------------------------------------------------------
 ami = aws.ec2.get_ami(
     most_recent=True,
@@ -35,14 +40,12 @@ vpc = aws.ec2.Vpc(
     tags={"Name": f"{proyecto}-vpc"},
 )
 
-# Puerta hacia Internet
 igw = aws.ec2.InternetGateway(
     "igw",
     vpc_id=vpc.id,
     tags={"Name": f"{proyecto}-igw"},
 )
 
-# Subred pública donde vivirá la VM
 subred = aws.ec2.Subnet(
     "subred-publica",
     vpc_id=vpc.id,
@@ -52,7 +55,6 @@ subred = aws.ec2.Subnet(
     tags={"Name": f"{proyecto}-subred-publica"},
 )
 
-# Tabla de ruteo: "todo lo que vaya a Internet, mándalo por el IGW"
 tabla_ruteo = aws.ec2.RouteTable(
     "rt-publica",
     vpc_id=vpc.id,
@@ -77,7 +79,7 @@ aws.ec2.RouteTableAssociation(
 portero = aws.ec2.SecurityGroup(
     "portero-web",
     vpc_id=vpc.id,
-    description="HTTP publico para la VM de Pulumi",
+    description="HTTP publico para las VMs de Pulumi",
     ingress=[
         aws.ec2.SecurityGroupIngressArgs(
             description="HTTP desde cualquier lugar",
@@ -100,18 +102,20 @@ portero = aws.ec2.SecurityGroup(
 )
 
 # ---------------------------------------------------------------------
-# 4) Script que se ejecuta al encender la VM: instala Nginx y una página
+# 4) NUEVO: una VM por cada integrante, usando un ciclo "for"
 # ---------------------------------------------------------------------
-script_inicio = """#!/bin/bash
+def script_inicio(nombre):
+    """Script que se ejecuta al encender la VM: instala Nginx y una página."""
+    return f"""#!/bin/bash
 apt-get update -y
 apt-get install -y nginx
 cat > /var/www/html/index.html <<'EOF'
 <!doctype html>
 <html lang="es">
-<head><meta charset="utf-8"><title>VM con Pulumi</title></head>
+<head><meta charset="utf-8"><title>VM de {nombre}</title></head>
 <body style="font-family:sans-serif;text-align:center;margin-top:80px">
-  <h1>VM creada con Pulumi</h1>
-  <p>Proyecto control_asistencia - Infraestructura como codigo con Python</p>
+  <h1>VM de {nombre}</h1>
+  <p>Creada con Pulumi (Python) - Proyecto control_asistencia</p>
 </body>
 </html>
 EOF
@@ -119,22 +123,18 @@ systemctl enable nginx
 systemctl restart nginx
 """
 
-# ---------------------------------------------------------------------
-# 5) La máquina virtual
-# ---------------------------------------------------------------------
-vm = aws.ec2.Instance(
-    "vm",
-    ami=ami.id,
-    instance_type="t3.micro",
-    subnet_id=subred.id,
-    vpc_security_group_ids=[portero.id],
-    user_data=script_inicio,
-    tags={"Name": f"{proyecto}-vm"},
-)
 
-# ---------------------------------------------------------------------
-# 6) Salidas: lo que Pulumi muestra al terminar (como outputs.tf)
-# ---------------------------------------------------------------------
-pulumi.export("id_vm", vm.id)
-pulumi.export("ip_publica", vm.public_ip)
-pulumi.export("url", vm.public_ip.apply(lambda ip: f"http://{ip}"))
+for nombre in integrantes:
+    vm = aws.ec2.Instance(
+        f"vm-{nombre}",
+        ami=ami.id,
+        instance_type="t3.micro",
+        subnet_id=subred.id,
+        vpc_security_group_ids=[portero.id],
+        user_data=script_inicio(nombre),
+        tags={"Name": f"{proyecto}-vm-{nombre}"},
+    )
+
+    # Salidas de cada VM (como outputs.tf)
+    pulumi.export(f"ip_{nombre}", vm.public_ip)
+    pulumi.export(f"url_{nombre}", vm.public_ip.apply(lambda ip: f"http://{ip}"))

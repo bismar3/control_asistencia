@@ -14,9 +14,11 @@ output "backend_ip_privada" {
 }
 
 output "ssh_frontend" {
-  value = "ssh -i ~/.ssh/id_ed25519 ubuntu@${aws_instance.frontend.public_ip}"
+  description = "Comando para conectarse por SSH al servidor frontend"
+  value       = "ssh -i ${var.ruta_llave_privada} ubuntu@${aws_instance.frontend.public_ip}"
 }
 
 output "ssh_backend" {
-  value = "ssh -i ~/.ssh/id_ed25519 ubuntu@${aws_instance.backend.public_ip}"
+  description = "Comando para conectarse por SSH al servidor backend"
+  value       = "ssh -i ${var.ruta_llave_privada} ubuntu@${aws_instance.backend.public_ip}"
 }

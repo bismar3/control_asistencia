@@ -1,0 +1,509 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: control_asist - Servidores backend (Django) y frontend (React) con CloudFormation
+
+# =====================================================================
+# parametros  de entrada" (como variables.tf + terraform.tfvars)
+# =====================================================================
+Parameters:
+  Proyecto:
+    Type: String
+    Default: control-asist-cfn
+    Description: Prefijo para los nombres de todos los recursos
+
+  IpPermitida:
+    Type: String
+    Description: Tu IP publica con /32 al final (ejemplo 192.223.106.13/32)
+    AllowedPattern: ^(\d{1,3}\.){3}\d{1,3}/32$
+    ConstraintDescription: Debe ser una IP con /32 al final, por ejemplo 192.223.106.13/32
+
+  PuertoBackend:
+    Type: Number
+    Default: 8000
+    Description: Puerto de Django (Gunicorn) en el servidor backend
+
+  TipoInstancia:
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t3.micro, t3.small]
+    Description: Tamano de los dos servidores
+
+  # Busca automáticamente la imagen más reciente de Ubuntu 24.04 (como data "aws_ami")
+  ImagenUbuntu:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+    Description: Imagen de Ubuntu 24.04 (se busca sola)
+
+  # Reutiliza la llave SSH que ya creó Terraform. AWS comprueba que exista.
+  NombreLlave:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: control-asist-llave
+    Description: Llave SSH existente para entrar a los servidores
+
+  RepoGit:
+    Type: String
+    Default: https://github.com/bismar3/control_asistencia.git
+    Description: Repositorio PUBLICO de donde los servidores descargan el codigo
+
+  RamaGit:
+    Type: String
+    Default: main
+    Description: Rama del repositorio a desplegar
+
+  DjangoWsgi:
+    Type: String
+    Default: config.wsgi
+    Description: Modulo WSGI de Django (carpeta de settings.py + .wsgi)
+
+  DbNombre:
+    Type: String
+    Default: asist
+    Description: Nombre de la base de datos PostgreSQL
+
+  DbUsuario:
+    Type: String
+    Default: asist_user
+    Description: Usuario de PostgreSQL que usa Django
+
+  # NoEcho: la consola de AWS muestra **** en vez del valor
+  DbPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    AllowedPattern: ^[a-zA-Z0-9]+$
+    ConstraintDescription: Minimo 8 caracteres, solo letras y numeros
+    Description: Contrasena de PostgreSQL (secreta)
+
+  DjangoSecretKey:
+    Type: String
+    NoEcho: true
+    MinLength: 40
+    AllowedPattern: ^[a-zA-Z0-9]+$
+    ConstraintDescription: Minimo 40 caracteres, solo letras y numeros
+    Description: SECRET_KEY de Django (secreta)
+
+# =====================================================================
+# RECURSOS: lo que se crea en AWS
+# =====================================================================
+Resources:
+
+  # ---------------- PARTE 1: RED (como red.tf) ----------------
+
+  # La red privada del proyecto
+  # Excepcion (Trivy AWS-0178): los Flow Logs requieren CloudWatch y cuestan dinero.
+  #trivy:ignore:AWS-0178
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.40.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-vpc"
+
+  # La puerta hacia internet
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-igw"
+
+  # Conecta la puerta con la VPC
+  ConexionGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  # Subred pública donde vivirán los dos servidores
+  # Excepcion (Trivy AWS-0164): subred publica a proposito; no usamos NAT ni balanceador para no gastar.
+  #trivy:ignore:AWS-0164
+  SubredPublica:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.40.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-subred-publica"
+
+  # Tabla de rutas de la subred pública
+  TablaRutas:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-rt-publica"
+
+  # "Todo lo que vaya a internet (0.0.0.0/0), mándalo por la puerta"
+  RutaInternet:
+    Type: AWS::EC2::Route
+    DependsOn: ConexionGateway
+    Properties:
+      RouteTableId: !Ref TablaRutas
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # Une la tabla de rutas con la subred
+  AsociacionSubred:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubredPublica
+      RouteTableId: !Ref TablaRutas
+
+  # ---------------- PARTE 2: PORTEROS (como seguridad.tf) ----------------
+  # Nota: AWS NO acepta tildes ni "ñ" en las descripciones de los Security Groups.
+
+  # Portero del FRONTEND: web pública y SSH solo desde tu IP
+  SgFrontend:
+    Type: AWS::EC2::SecurityGroup
+    Metadata:
+      checkov:
+        skip:
+          - id: CKV_AWS_260
+            comment: El puerto 80 debe estar abierto al publico porque es la pagina web del sistema
+    Properties:
+      GroupName: !Sub "${Proyecto}-sg-frontend"
+      GroupDescription: Web publica (80/443) y SSH desde mi IP
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - Description: HTTP desde cualquier lugar
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - Description: HTTPS desde cualquier lugar
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - Description: SSH solo desde mi IP
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref IpPermitida
+      SecurityGroupEgress:
+        # Excepcion (Trivy AWS-0104): necesita salida a internet (apt, npm, git clone).
+        #trivy:ignore:AWS-0104
+        - Description: Salida libre (instalar paquetes)
+          IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-sg-frontend"
+
+  # Portero del BACKEND: Django SOLO desde el frontend, SSH solo desde tu IP
+  SgBackend:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${Proyecto}-sg-backend"
+      GroupDescription: Django solo desde el frontend y SSH desde mi IP
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - Description: Django solo desde el servidor frontend
+          IpProtocol: tcp
+          FromPort: !Ref PuertoBackend
+          ToPort: !Ref PuertoBackend
+          SourceSecurityGroupId: !Ref SgFrontend
+        - Description: SSH solo desde mi IP
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref IpPermitida
+      SecurityGroupEgress:
+        # Excepcion (Trivy AWS-0104): necesita salida a internet (apt, pip, git clone).
+        #trivy:ignore:AWS-0104
+        - Description: Salida libre (instalar paquetes)
+          IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-sg-backend"
+
+  # ---------------- PARTE 3: SERVIDORES (como servidores.tf + despliegue.tf) ----------------
+
+  # Plantilla de lanzamiento: obliga a usar IMDSv2 en los dos servidores
+  PlantillaSeguridadEc2:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub "${Proyecto}-imdsv2"
+      LaunchTemplateData:
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required
+
+  # ======================= SERVIDOR FRONTEND (Nginx + React) =======================
+  # Se crea PRIMERO. Ya conoce la IP fija del backend (10.40.1.10).
+  InstanciaFrontend:
+    Type: AWS::EC2::Instance
+    DependsOn: RutaInternet
+    Properties:
+      ImageId: !Ref ImagenUbuntu
+      InstanceType: !Ref TipoInstancia
+      KeyName: !Ref NombreLlave
+      SubnetId: !Ref SubredPublica
+      SecurityGroupIds:
+        - !Ref SgFrontend
+      LaunchTemplate:
+        LaunchTemplateId: !Ref PlantillaSeguridadEc2
+        Version: !GetAtt PlantillaSeguridadEc2.LatestVersionNumber
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-frontend"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Instala Nginx, descarga el frontend de GitHub, lo compila y lo publica.
+          # Log de este script: /var/log/cloud-init-output.log
+          set -e
+          export HOME=/root
+          export DEBIAN_FRONTEND=noninteractive
+
+          echo ">> 1. Memoria extra (swap) para poder compilar React"
+          if [ ! -f /swapfile ]; then
+            fallocate -l 1G /swapfile
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+          fi
+
+          echo ">> 2. Instalando Nginx y Git"
+          apt-get update -y
+          apt-get install -y nginx git curl ca-certificates
+
+          mkdir -p /var/www/app
+          echo '<h1>Instalando el frontend, espera unos minutos...</h1>' > /var/www/app/index.html
+
+          echo ">> 3. Configurando Nginx (reenvia la API a la IP fija del backend)"
+          cat > /etc/nginx/sites-available/default <<'EOF'
+          server {
+              listen 80 default_server;
+              root /var/www/app;
+              index index.html;
+
+              client_max_body_size 20M;
+
+              location / {
+                  try_files $uri $uri/ /index.html;
+              }
+
+              location /graphql {
+                  proxy_pass http://10.40.1.10:${PuertoBackend};
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+
+              location /media {
+                  proxy_pass http://10.40.1.10:${PuertoBackend};
+                  proxy_set_header Host $host;
+              }
+
+              location /admin {
+                  proxy_pass http://10.40.1.10:${PuertoBackend};
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              }
+
+              location /static {
+                  proxy_pass http://10.40.1.10:${PuertoBackend};
+                  proxy_set_header Host $host;
+              }
+          }
+          EOF
+          systemctl enable nginx
+          systemctl restart nginx
+
+          echo ">> 4. Instalando Node.js 22"
+          curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+          apt-get install -y nodejs
+
+          echo ">> 5. Descargando y compilando el frontend"
+          git clone --depth 1 --branch ${RamaGit} ${RepoGit} /opt/repo
+          cd /opt/repo/frontend
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm run build
+
+          echo ">> 6. Publicando el frontend en Nginx"
+          rm -rf /var/www/app/*
+          cp -r dist/* /var/www/app/
+          chown -R www-data:www-data /var/www/app
+          systemctl reload nginx
+          echo ">> Frontend listo"
+
+  # ======================= SERVIDOR BACKEND (Django + PostgreSQL) =======================
+  # Se crea DESPUÉS del frontend, porque necesita su IP pública (CSRF_TRUSTED_ORIGINS).
+  InstanciaBackend:
+    Type: AWS::EC2::Instance
+    DependsOn: RutaInternet
+    Properties:
+      ImageId: !Ref ImagenUbuntu
+      InstanceType: !Ref TipoInstancia
+      KeyName: !Ref NombreLlave
+      SubnetId: !Ref SubredPublica
+      PrivateIpAddress: 10.40.1.10
+      SecurityGroupIds:
+        - !Ref SgBackend
+      LaunchTemplate:
+        LaunchTemplateId: !Ref PlantillaSeguridadEc2
+        Version: !GetAtt PlantillaSeguridadEc2.LatestVersionNumber
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 12
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-backend"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Instala Python y PostgreSQL, descarga el backend de GitHub y arranca Django.
+          # Log de este script: /var/log/cloud-init-output.log
+          set -e
+          export HOME=/root
+          export DEBIAN_FRONTEND=noninteractive
+
+          echo ">> 1. Memoria extra (swap): t3.micro solo tiene 1 GB de RAM"
+          if [ ! -f /swapfile ]; then
+            fallocate -l 1G /swapfile
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+          fi
+
+          echo ">> 2. Instalando Python, PostgreSQL y Git"
+          apt-get update -y
+          apt-get install -y python3 python3-venv python3-dev build-essential \
+            libpq-dev postgresql postgresql-contrib git
+          systemctl enable --now postgresql
+
+          echo ">> 3. Descargando el backend de GitHub"
+          APP=/opt/app
+          mkdir -p $APP
+          git clone --depth 1 --branch ${RamaGit} ${RepoGit} $APP/repo
+          SRC=$APP/repo/backend
+          mkdir -p $SRC/media
+
+          echo ">> 4. Escribiendo las variables de Django (como app.env.tftpl)"
+          cat > $APP/app.env <<EOF
+          DB_NAME=${DbNombre}
+          DB_USER=${DbUsuario}
+          DB_PASSWORD=${DbPassword}
+          DB_HOST=localhost
+          DB_PORT=5432
+          DJANGO_SECRET_KEY=${DjangoSecretKey}
+          DJANGO_DEBUG=False
+          DJANGO_ALLOWED_HOSTS=*
+          CSRF_TRUSTED_ORIGINS=http://localhost
+          DJANGO_WSGI=${DjangoWsgi}
+          PORT=${PuertoBackend}
+          EOF
+          chmod 600 $APP/app.env
+          set -a; . $APP/app.env; set +a
+
+          echo ">> 5. Preparando PostgreSQL"
+          cd /tmp
+          sudo -u postgres psql -v ON_ERROR_STOP=1 <<SQL
+          DO \$\$
+          BEGIN
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$DB_USER') THEN
+              CREATE ROLE "$DB_USER" LOGIN PASSWORD '$DB_PASSWORD';
+            ELSE
+              ALTER ROLE "$DB_USER" WITH LOGIN PASSWORD '$DB_PASSWORD';
+            END IF;
+          END
+          \$\$;
+          SQL
+          if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" | grep -q 1; then
+            sudo -u postgres createdb -O "$DB_USER" "$DB_NAME"
+          fi
+
+          echo ">> 6. Instalando dependencias de Python"
+          python3 -m venv $APP/venv
+          $APP/venv/bin/pip install --upgrade pip -q
+          $APP/venv/bin/pip install -r $SRC/requirements.txt -q
+          $APP/venv/bin/pip install gunicorn -q
+
+          echo ">> 7. Creando tablas (migrate) y archivos estaticos"
+          cd $SRC
+          $APP/venv/bin/python manage.py migrate --noinput
+          $APP/venv/bin/python manage.py collectstatic --noinput || echo "(collectstatic omitido)"
+          chown -R ubuntu:ubuntu $APP
+
+          echo ">> 8. Dejando Django corriendo como servicio"
+          cat > /etc/systemd/system/django.service <<EOF
+          [Unit]
+          Description=Django control_asist (Gunicorn)
+          After=network.target postgresql.service
+
+          [Service]
+          User=ubuntu
+          WorkingDirectory=$SRC
+          EnvironmentFile=$APP/app.env
+          ExecStart=$APP/venv/bin/gunicorn $DJANGO_WSGI:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          systemctl daemon-reload
+          systemctl enable django
+          systemctl restart django
+          echo ">> Backend listo en el puerto $PORT"
+
+# =====================================================================
+# SALIDAS: lo que se muestra al terminar (como outputs.tf)
+# =====================================================================
+Outputs:
+  VpcId:
+    Description: ID de la VPC creada
+    Value: !Ref Vpc
+
+  SubredId:
+    Description: ID de la subred publica
+    Value: !Ref SubredPublica
+
+  SgFrontendId:
+    Description: ID del Security Group del frontend
+    Value: !Ref SgFrontend
+
+  SgBackendId:
+    Description: ID del Security Group del backend
+    Value: !Ref SgBackend
+
+  UrlApp:
+    Description: Abre esta direccion en el navegador (con http://)
+    Value: !Sub "http://${InstanciaFrontend.PublicIp}"
+
+  UrlAdmin:
+    Description: Panel de administracion de Django
+    Value: !Sub "http://${InstanciaFrontend.PublicIp}/admin/"
+
+  BackendIpPrivada:
+    Description: IP interna fija por la que el frontend habla con Django
+    Value: !GetAtt InstanciaBackend.PrivateIp
+
+  SshFrontend:
+    Description: Comando para entrar por SSH al frontend
+    Value: !Sub "ssh -i ~/.ssh/id_ed25519 ubuntu@${InstanciaFrontend.PublicIp}"
+
+  SshBackend:
+    Description: Comando para entrar por SSH al backend
+    Value: !Sub "ssh -i ~/.ssh/id_ed25519 ubuntu@${InstanciaBackend.PublicIp}"

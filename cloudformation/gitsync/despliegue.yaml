@@ -1,0 +1,10 @@
+# Archivo de despliegue de Git sync.
+# CloudFormation lo lee desde GitHub para saber QUE plantilla usar y CON QUE parametros.
+# Si cambias algo aqui (o en la plantilla) y haces git push, el stack se actualiza solo.
+template-file-path: cloudformation/gitsync/bucket-demo.yaml
+parameters:
+  Ambiente: dev
+  Mensaje: version 1
+tags:
+  Proyecto: control-asist
+  GestionadoPor: CloudFormation-GitSync

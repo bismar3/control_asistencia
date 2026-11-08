@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Plantilla HIJA 2 - Seguridad (Security Groups del frontend y del backend)
+
+# =====================================================================
+# ENTRADAS: los datos que le pasa la plantilla principal
+# =====================================================================
+Parameters:
+  Proyecto:
+    Type: String
+    Description: Prefijo para los nombres de los recursos
+
+  # Viene de la SALIDA de red.yaml
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: ID de la VPC donde se crean los porteros
+
+  IpPermitida:
+    Type: String
+    Description: IP publica con /32 al final, para entrar por SSH
+    AllowedPattern: ^(\d{1,3}\.){3}\d{1,3}/32$
+    ConstraintDescription: Debe ser una IP con /32 al final
+
+  PuertoBackend:
+    Type: Number
+    Default: 8000
+    Description: Puerto de Django en el servidor backend
+
+# =====================================================================
+# RECURSOS: solo los PORTEROS
+# Nota: AWS NO acepta tildes ni "ñ" en las descripciones de los Security Groups.
+# =====================================================================
+Resources:
+
+  # Portero del FRONTEND: web publica y SSH solo desde la IP permitida
+  SgFrontend:
+    Type: AWS::EC2::SecurityGroup
+    Metadata:
+      checkov:
+        skip:
+          - id: CKV_AWS_260
+            comment: El puerto 80 debe estar abierto al publico porque es la pagina web del sistema
+    Properties:
+      GroupName: !Sub "${Proyecto}-sg-frontend"
+      GroupDescription: Web publica (80/443) y SSH desde mi IP
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: HTTP desde cualquier lugar
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - Description: HTTPS desde cualquier lugar
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - Description: SSH solo desde mi IP
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref IpPermitida
+      SecurityGroupEgress:
+        # Excepcion (Trivy AWS-0104): necesita salida a internet (apt, npm, git clone).
+        #trivy:ignore:AWS-0104
+        - Description: Salida libre (instalar paquetes)
+          IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-sg-frontend"
+
+  # Portero del BACKEND: Django SOLO desde el frontend, SSH solo desde la IP permitida
+  SgBackend:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${Proyecto}-sg-backend"
+      GroupDescription: Django solo desde el frontend y SSH desde mi IP
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: Django solo desde el servidor frontend
+          IpProtocol: tcp
+          FromPort: !Ref PuertoBackend
+          ToPort: !Ref PuertoBackend
+          SourceSecurityGroupId: !Ref SgFrontend
+        - Description: SSH solo desde mi IP
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref IpPermitida
+      SecurityGroupEgress:
+        # Excepcion (Trivy AWS-0104): necesita salida a internet (apt, pip, git clone).
+        #trivy:ignore:AWS-0104
+        - Description: Salida libre (instalar paquetes)
+          IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-sg-backend"
+
+# =====================================================================
+# SALIDAS: lo que esta plantilla le devuelve a la principal
+# =====================================================================
+Outputs:
+  SgFrontendId:
+    Description: ID del portero del frontend (lo usa la plantilla de servidores)
+    Value: !Ref SgFrontend
+
+  SgBackendId:
+    Description: ID del portero del backend (lo usa la plantilla de servidores)
+    Value: !Ref SgBackend
+    

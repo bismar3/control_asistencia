@@ -1,0 +1,364 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Plantilla HIJA 3 - Servidores backend (Django + PostgreSQL) y frontend (Nginx + React)
+
+# =====================================================================
+# ENTRADAS: los datos que le pasa la plantilla principal
+# =====================================================================
+Parameters:
+  Proyecto:
+    Type: String
+    Description: Prefijo para los nombres de los recursos
+
+  # Vienen de las SALIDAS de red.yaml y seguridad.yaml
+  SubredId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subred publica donde se crean los servidores
+  SgFrontendId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Portero del frontend
+  SgBackendId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Portero del backend
+
+  # IP privada FIJA del backend (debe estar dentro de la subred 10.50.1.0/24)
+  IpPrivadaBackend:
+    Type: String
+    Default: 10.50.1.10
+    Description: IP interna fija del backend; el frontend la usa en Nginx
+
+  PuertoBackend:
+    Type: Number
+    Default: 8000
+    Description: Puerto de Django en el servidor backend
+
+  TipoInstancia:
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t3.micro, t3.small]
+    Description: Tamano de los dos servidores
+
+  ImagenUbuntu:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+    Description: Imagen de Ubuntu 24.04 (se busca sola)
+
+  NombreLlave:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: control-asist-llave
+    Description: Llave SSH existente
+
+  RepoGit:
+    Type: String
+    Default: https://github.com/bismar3/control_asistencia.git
+    Description: Repositorio PUBLICO de donde se descarga el codigo
+
+  RamaGit:
+    Type: String
+    Default: main
+    Description: Rama del repositorio
+
+  DjangoWsgi:
+    Type: String
+    Default: config.wsgi
+    Description: Modulo WSGI de Django
+
+  DbNombre:
+    Type: String
+    Default: asist
+    Description: Nombre de la base de datos
+
+  DbUsuario:
+    Type: String
+    Default: asist_user
+    Description: Usuario de PostgreSQL
+
+  DbPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    AllowedPattern: ^[a-zA-Z0-9]+$
+    ConstraintDescription: Minimo 8 caracteres, solo letras y numeros
+    Description: Contrasena de PostgreSQL (secreta)
+
+  DjangoSecretKey:
+    Type: String
+    NoEcho: true
+    MinLength: 40
+    AllowedPattern: ^[a-zA-Z0-9]+$
+    ConstraintDescription: Minimo 40 caracteres, solo letras y numeros
+    Description: SECRET_KEY de Django (secreta)
+
+  # NUEVO: usuario administrador que se crea solo
+  AdminEmail:
+    Type: String
+    Default: admin@gmail.com
+    Description: Correo del usuario administrador de Django
+
+  AdminPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    AllowedPattern: ^[a-zA-Z0-9]+$
+    ConstraintDescription: Minimo 8 caracteres, solo letras y numeros
+    Description: Contrasena del usuario administrador (secreta)
+
+# =====================================================================
+# RECURSOS: solo los SERVIDORES
+# =====================================================================
+Resources:
+
+  # Plantilla de lanzamiento: obliga a usar IMDSv2
+  PlantillaSeguridadEc2:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: !Sub "${Proyecto}-imdsv2"
+      LaunchTemplateData:
+        MetadataOptions:
+          HttpEndpoint: enabled
+          HttpTokens: required
+
+  # ======================= FRONTEND (Nginx + React) =======================
+  InstanciaFrontend:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImagenUbuntu
+      InstanceType: !Ref TipoInstancia
+      KeyName: !Ref NombreLlave
+      SubnetId: !Ref SubredId
+      SecurityGroupIds:
+        - !Ref SgFrontendId
+      LaunchTemplate:
+        LaunchTemplateId: !Ref PlantillaSeguridadEc2
+        Version: !GetAtt PlantillaSeguridadEc2.LatestVersionNumber
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-frontend"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Instala Nginx, descarga el frontend de GitHub, lo compila y lo publica.
+          set -e
+          export HOME=/root
+          export DEBIAN_FRONTEND=noninteractive
+
+          echo ">> 1. Memoria extra (swap) para compilar React"
+          if [ ! -f /swapfile ]; then
+            fallocate -l 1G /swapfile
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+          fi
+
+          echo ">> 2. Instalando Nginx y Git"
+          apt-get update -y
+          apt-get install -y nginx git curl ca-certificates
+
+          mkdir -p /var/www/app
+          echo '<h1>Instalando el frontend, espera unos minutos...</h1>' > /var/www/app/index.html
+
+          echo ">> 3. Configurando Nginx (reenvia la API al backend)"
+          cat > /etc/nginx/sites-available/default <<'EOF'
+          server {
+              listen 80 default_server;
+              root /var/www/app;
+              index index.html;
+
+              client_max_body_size 20M;
+
+              location / {
+                  try_files $uri $uri/ /index.html;
+              }
+
+              location /graphql {
+                  proxy_pass http://${IpPrivadaBackend}:${PuertoBackend};
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+
+              location /media {
+                  proxy_pass http://${IpPrivadaBackend}:${PuertoBackend};
+                  proxy_set_header Host $host;
+              }
+
+              location /admin {
+                  proxy_pass http://${IpPrivadaBackend}:${PuertoBackend};
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              }
+
+              location /static {
+                  proxy_pass http://${IpPrivadaBackend}:${PuertoBackend};
+                  proxy_set_header Host $host;
+              }
+          }
+          EOF
+          systemctl enable nginx
+          systemctl restart nginx
+
+          echo ">> 4. Instalando Node.js 22"
+          curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+          apt-get install -y nodejs
+
+          echo ">> 5. Descargando y compilando el frontend"
+          git clone --depth 1 --branch ${RamaGit} ${RepoGit} /opt/repo
+          cd /opt/repo/frontend
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npm run build
+
+          echo ">> 6. Publicando el frontend en Nginx"
+          rm -rf /var/www/app/*
+          cp -r dist/* /var/www/app/
+          chown -R www-data:www-data /var/www/app
+          systemctl reload nginx
+          echo ">> Frontend listo"
+
+  # ======================= BACKEND (Django + PostgreSQL) =======================
+  InstanciaBackend:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImagenUbuntu
+      InstanceType: !Ref TipoInstancia
+      KeyName: !Ref NombreLlave
+      SubnetId: !Ref SubredId
+      PrivateIpAddress: !Ref IpPrivadaBackend
+      SecurityGroupIds:
+        - !Ref SgBackendId
+      LaunchTemplate:
+        LaunchTemplateId: !Ref PlantillaSeguridadEc2
+        Version: !GetAtt PlantillaSeguridadEc2.LatestVersionNumber
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 12
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-backend"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Instala Python y PostgreSQL, descarga el backend, arranca Django y crea el administrador.
+          set -e
+          export HOME=/root
+          export DEBIAN_FRONTEND=noninteractive
+
+          echo ">> 1. Memoria extra (swap)"
+          if [ ! -f /swapfile ]; then
+            fallocate -l 1G /swapfile
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+            echo '/swapfile none swap sw 0 0' >> /etc/fstab
+          fi
+
+          echo ">> 2. Instalando Python, PostgreSQL y Git"
+          apt-get update -y
+          apt-get install -y python3 python3-venv python3-dev build-essential \
+            libpq-dev postgresql postgresql-contrib git
+          systemctl enable --now postgresql
+
+          echo ">> 3. Descargando el backend de GitHub"
+          APP=/opt/app
+          mkdir -p $APP
+          git clone --depth 1 --branch ${RamaGit} ${RepoGit} $APP/repo
+          SRC=$APP/repo/backend
+          mkdir -p $SRC/media
+
+          echo ">> 4. Escribiendo las variables de Django"
+          cat > $APP/app.env <<EOF
+          DB_NAME=${DbNombre}
+          DB_USER=${DbUsuario}
+          DB_PASSWORD=${DbPassword}
+          DB_HOST=localhost
+          DB_PORT=5432
+          DJANGO_SECRET_KEY=${DjangoSecretKey}
+          DJANGO_DEBUG=False
+          DJANGO_ALLOWED_HOSTS=*
+          CSRF_TRUSTED_ORIGINS=http://localhost
+          DJANGO_WSGI=${DjangoWsgi}
+          PORT=${PuertoBackend}
+          EOF
+          chmod 600 $APP/app.env
+          set -a; . $APP/app.env; set +a
+
+          echo ">> 5. Preparando PostgreSQL"
+          cd /tmp
+          sudo -u postgres psql -v ON_ERROR_STOP=1 <<SQL
+          DO \$\$
+          BEGIN
+            IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$DB_USER') THEN
+              CREATE ROLE "$DB_USER" LOGIN PASSWORD '$DB_PASSWORD';
+            ELSE
+              ALTER ROLE "$DB_USER" WITH LOGIN PASSWORD '$DB_PASSWORD';
+            END IF;
+          END
+          \$\$;
+          SQL
+          if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" | grep -q 1; then
+            sudo -u postgres createdb -O "$DB_USER" "$DB_NAME"
+          fi
+
+          echo ">> 6. Instalando dependencias de Python"
+          python3 -m venv $APP/venv
+          $APP/venv/bin/pip install --upgrade pip -q
+          $APP/venv/bin/pip install -r $SRC/requirements.txt -q
+          $APP/venv/bin/pip install gunicorn -q
+
+          echo ">> 7. Creando tablas (migrate) y archivos estaticos"
+          cd $SRC
+          $APP/venv/bin/python manage.py migrate --noinput
+          $APP/venv/bin/python manage.py collectstatic --noinput || echo "(collectstatic omitido)"
+
+          echo ">> 8. Creando el usuario administrador"
+          DJANGO_SUPERUSER_EMAIL='${AdminEmail}' DJANGO_SUPERUSER_PASSWORD='${AdminPassword}' \
+            $APP/venv/bin/python manage.py createsuperuser --noinput || echo "(el administrador ya existia o no se pudo crear)"
+          chown -R ubuntu:ubuntu $APP
+
+          echo ">> 9. Dejando Django corriendo como servicio"
+          cat > /etc/systemd/system/django.service <<EOF
+          [Unit]
+          Description=Django control_asist (Gunicorn)
+          After=network.target postgresql.service
+
+          [Service]
+          User=ubuntu
+          WorkingDirectory=$SRC
+          EnvironmentFile=$APP/app.env
+          ExecStart=$APP/venv/bin/gunicorn $DJANGO_WSGI:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+          systemctl daemon-reload
+          systemctl enable django
+          systemctl restart django
+          echo ">> Backend listo en el puerto $PORT"
+
+# =====================================================================
+# SALIDAS: lo que esta plantilla le devuelve a la principal
+# =====================================================================
+Outputs:
+  UrlApp:
+    Description: Direccion de la app
+    Value: !Sub "http://${InstanciaFrontend.PublicIp}"
+
+  UrlAdmin:
+    Description: Panel de administracion de Django
+    Value: !Sub "http://${InstanciaFrontend.PublicIp}/admin/"
+
+  BackendIpPrivada:
+    Description: IP interna fija del backend
+    Value: !GetAtt InstanciaBackend.PrivateIp

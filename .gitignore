@@ -35,3 +35,6 @@ id_ed25519.pub
 *.tfstate.*
 .terraform/
 .build/
+
+# Generado por 'aws cloudformation package'
+cloudformation/anidadas/principal-empaquetado.yaml

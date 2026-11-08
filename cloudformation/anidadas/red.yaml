@@ -1,0 +1,100 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Plantilla HIJA 1 - Red (VPC, subred publica, gateway y rutas)
+
+# =====================================================================
+# ENTRADAS: los datos que le pasa la plantilla principal
+# =====================================================================
+Parameters:
+  Proyecto:
+    Type: String
+    Description: Prefijo para los nombres de los recursos
+
+  CidrVpc:
+    Type: String
+    Default: 10.50.0.0/16
+    Description: Rango de IPs de la VPC
+
+  CidrSubred:
+    Type: String
+    Default: 10.50.1.0/24
+    Description: Rango de IPs de la subred publica
+
+# =====================================================================
+# RECURSOS: solo lo de la RED
+# =====================================================================
+Resources:
+
+  # La red privada del proyecto
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref CidrVpc
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-vpc"
+
+  # La puerta hacia internet
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-igw"
+
+  # Conecta la puerta con la VPC
+  ConexionGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  # Subred pública donde vivirán los servidores
+  SubredPublica:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !Ref CidrSubred
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-subred-publica"
+
+  # Tabla de rutas de la subred pública
+  TablaRutas:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${Proyecto}-rt-publica"
+
+  # "Todo lo que vaya a internet, mándalo por la puerta"
+  RutaInternet:
+    Type: AWS::EC2::Route
+    DependsOn: ConexionGateway
+    Properties:
+      RouteTableId: !Ref TablaRutas
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  # Une la tabla de rutas con la subred
+  AsociacionSubred:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubredPublica
+      RouteTableId: !Ref TablaRutas
+
+# =====================================================================
+# SALIDAS: lo que esta plantilla le devuelve a la principal
+# =====================================================================
+Outputs:
+  VpcId:
+    Description: ID de la VPC (lo usa la plantilla de seguridad)
+    Value: !Ref Vpc
+
+  SubredId:
+    Description: ID de la subred publica (lo usa la plantilla de servidores)
+    Value: !Ref SubredPublica

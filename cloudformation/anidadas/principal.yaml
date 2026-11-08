@@ -1,0 +1,100 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Plantilla PRINCIPAL - Une las plantillas hijas de red, seguridad y servidores (nested stacks)
+
+# =====================================================================
+# PARÁMETROS: los datos que se pasan al desplegar
+# =====================================================================
+Parameters:
+  Proyecto:
+    Type: String
+    Default: control-asist-anid
+    Description: Prefijo para los nombres de todos los recursos
+
+  IpPermitida:
+    Type: String
+    Description: Tu IP publica con /32 al final, para entrar por SSH
+    AllowedPattern: ^(\d{1,3}\.){3}\d{1,3}/32$
+    ConstraintDescription: Debe ser una IP con /32 al final
+
+  TipoInstancia:
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t3.micro, t3.small]
+    Description: Tamano de los dos servidores
+
+  DbPassword:
+    Type: String
+    NoEcho: true
+    Description: Contrasena de PostgreSQL (secreta)
+
+  DjangoSecretKey:
+    Type: String
+    NoEcho: true
+    Description: SECRET_KEY de Django (secreta)
+
+  AdminEmail:
+    Type: String
+    Default: admin@gmail.com
+    Description: Correo del usuario administrador
+
+  AdminPassword:
+    Type: String
+    NoEcho: true
+    Description: Contrasena del usuario administrador (secreta)
+
+# =====================================================================
+# RECURSOS: cada uno es una PLANTILLA HIJA (AWS::CloudFormation::Stack)
+# =====================================================================
+Resources:
+
+  # ---------- HIJA 1: la red ----------
+  StackRed:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: red.yaml
+      Parameters:
+        Proyecto: !Ref Proyecto
+
+  # ---------- HIJA 2: los porteros ----------
+  # Recibe el VpcId que DEVOLVIÓ la hija de red
+  StackSeguridad:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: seguridad.yaml
+      Parameters:
+        Proyecto: !Ref Proyecto
+        VpcId: !GetAtt StackRed.Outputs.VpcId
+        IpPermitida: !Ref IpPermitida
+
+  # ---------- HIJA 3: los servidores ----------
+  # Recibe la subred (de la red) y los porteros (de seguridad)
+  StackServidores:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: servidores.yaml
+      Parameters:
+        Proyecto: !Ref Proyecto
+        SubredId: !GetAtt StackRed.Outputs.SubredId
+        SgFrontendId: !GetAtt StackSeguridad.Outputs.SgFrontendId
+        SgBackendId: !GetAtt StackSeguridad.Outputs.SgBackendId
+        TipoInstancia: !Ref TipoInstancia
+        DbPassword: !Ref DbPassword
+        DjangoSecretKey: !Ref DjangoSecretKey
+        AdminEmail: !Ref AdminEmail
+        AdminPassword: !Ref AdminPassword
+
+# =====================================================================
+# SALIDAS: lo que se muestra al terminar
+# =====================================================================
+Outputs:
+  UrlApp:
+    Description: Abre esta direccion en el navegador (con http://)
+    Value: !GetAtt StackServidores.Outputs.UrlApp
+
+  UrlAdmin:
+    Description: Panel de administracion de Django
+    Value: !GetAtt StackServidores.Outputs.UrlAdmin
+
+  BackendIpPrivada:
+    Description: IP interna fija del backend
+    Value: !GetAtt StackServidores.Outputs.BackendIpPrivada

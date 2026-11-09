@@ -1,0 +1,14 @@
+# Servicio de Django con Gunicorn - GENERADO por Ansible
+[Unit]
+Description=Django control_asist (Gunicorn)
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory={{ src }}
+EnvironmentFile={{ app_dir }}/app.env
+ExecStart={{ app_dir }}/venv/bin/gunicorn {{ django_wsgi }}:application --bind 0.0.0.0:{{ puerto_backend }} --workers 2 --timeout 120
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

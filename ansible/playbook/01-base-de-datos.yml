@@ -1,0 +1,63 @@
+# =====================================================================
+# PLAYBOOK 1: servidor de BASE DE DATOS (PostgreSQL)
+# Solo el servidor BACKEND puede conectarse a la base de datos.
+# =====================================================================
+- name: Configurar el servidor de BASE DE DATOS (PostgreSQL)
+  hosts: db
+  become: true                # ejecutar como administrador (sudo)
+
+  vars_files:
+    - secretos.yml            # db_password
+
+  vars:
+    pg_version: "16"          # la version de PostgreSQL que trae Ubuntu 24.04
+    db_nombre: asist
+    db_usuario: asist_user
+    # IP privada del backend, leida del inventario
+    ip_backend: "{{ hostvars['servidor-backend'].ip_privada }}"
+
+  tasks:
+    - name: Zona horaria de Bolivia
+      community.general.timezone:
+        name: America/La_Paz
+
+    - name: Instalar PostgreSQL
+      ansible.builtin.apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+          - python3-psycopg2      # lo necesita Ansible para hablar con PostgreSQL
+          - acl                   # permite que Ansible actue como el usuario "postgres"
+        update_cache: true
+
+    - name: Escuchar conexiones de la red (el portero decide quien entra)
+      ansible.builtin.lineinfile:
+        path: "/etc/postgresql/{{ pg_version }}/main/postgresql.conf"
+        regexp: "^#?listen_addresses"
+        line: "listen_addresses = '*'"
+      notify: Reiniciar PostgreSQL
+
+    - name: Permitir SOLO al servidor backend
+      ansible.builtin.lineinfile:
+        path: "/etc/postgresql/{{ pg_version }}/main/pg_hba.conf"
+        line: "host  {{ db_nombre }}  {{ db_usuario }}  {{ ip_backend }}/32  scram-sha-256"
+      notify: Reiniciar PostgreSQL
+
+    - name: Crear el usuario de la base de datos
+      become_user: postgres
+      community.postgresql.postgresql_user:
+        name: "{{ db_usuario }}"
+        password: "{{ db_password }}"
+      no_log: true            # no mostrar la contrasena en pantalla
+
+    - name: Crear la base de datos
+      become_user: postgres
+      community.postgresql.postgresql_db:
+        name: "{{ db_nombre }}"
+        owner: "{{ db_usuario }}"
+
+  handlers:
+    - name: Reiniciar PostgreSQL
+      ansible.builtin.service:
+        name: postgresql
+        state: restarted

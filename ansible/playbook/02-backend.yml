@@ -1,0 +1,150 @@
+# =====================================================================
+# PLAYBOOK 2: servidor BACKEND (Django + Gunicorn)
+# Se conecta a PostgreSQL en el servidor de base de datos.
+# =====================================================================
+- name: Configurar el servidor BACKEND (Django)
+  hosts: backend
+  become: true
+
+  vars_files:
+    - secretos.yml            # db_password, django_secret_key, admin_email, admin_password
+
+  vars:
+    repo_git: https://github.com/bismar3/control_asistencia.git
+    rama_git: main
+    app_dir: /opt/app
+    src: /opt/app/repo/backend
+    db_nombre: asist
+    db_usuario: asist_user
+    # IP privada del servidor de base de datos, leida del inventario
+    db_host: "{{ hostvars['servidor-db'].ip_privada }}"
+    django_wsgi: config.wsgi
+    puerto_backend: 8000
+    # Comando para cargar las variables de Django antes de usar manage.py
+    cargar_env: "set -a; . {{ app_dir }}/app.env; set +a"
+
+  tasks:
+    - name: Zona horaria de Bolivia
+      community.general.timezone:
+        name: America/La_Paz
+
+    - name: Memoria extra (swap de 1 GB), t3.micro solo tiene 1 GB de RAM
+      ansible.builtin.shell: |
+        fallocate -l 1G /swapfile
+        chmod 600 /swapfile
+        mkswap /swapfile
+        swapon /swapfile
+        echo '/swapfile none swap sw 0 0' >> /etc/fstab
+      args:
+        creates: /swapfile        # solo se ejecuta si /swapfile NO existe
+
+    - name: Instalar Python y herramientas
+      ansible.builtin.apt:
+        name:
+          - python3
+          - python3-venv
+          - python3-dev
+          - build-essential
+          - libpq-dev
+          - git
+          - acl
+        update_cache: true
+
+    - name: Crear la carpeta de la app
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+
+    - name: Descargar el codigo desde GitHub
+      become_user: ubuntu
+      ansible.builtin.git:
+        repo: "{{ repo_git }}"
+        dest: "{{ app_dir }}/repo"
+        version: "{{ rama_git }}"
+        depth: 1
+      notify: Reiniciar Django
+
+    - name: Crear la carpeta media
+      ansible.builtin.file:
+        path: "{{ src }}/media"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+
+    - name: Escribir las variables de Django (plantilla app.env.j2)
+      ansible.builtin.template:
+        src: plantillas/app.env.j2
+        dest: "{{ app_dir }}/app.env"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"
+      notify: Reiniciar Django
+
+    - name: Instalar las dependencias de Python (requirements.txt)
+      become_user: ubuntu
+      ansible.builtin.pip:
+        requirements: "{{ src }}/requirements.txt"
+        virtualenv: "{{ app_dir }}/venv"
+        virtualenv_command: python3 -m venv
+
+    - name: Instalar Gunicorn
+      become_user: ubuntu
+      ansible.builtin.pip:
+        name: gunicorn
+        virtualenv: "{{ app_dir }}/venv"
+        virtualenv_command: python3 -m venv
+
+    - name: Crear las tablas en la base de datos (migrate)
+      become_user: ubuntu
+      ansible.builtin.shell: "{{ cargar_env }}; {{ app_dir }}/venv/bin/python manage.py migrate --noinput"
+      args:
+        chdir: "{{ src }}"
+        executable: /bin/bash
+      register: migrate
+      changed_when: "'No migrations to apply' not in migrate.stdout"
+
+    - name: Reunir los archivos estaticos (collectstatic)
+      become_user: ubuntu
+      ansible.builtin.shell: "{{ cargar_env }}; {{ app_dir }}/venv/bin/python manage.py collectstatic --noinput"
+      args:
+        chdir: "{{ src }}"
+        executable: /bin/bash
+      register: estaticos
+      changed_when: "'0 static files copied' not in estaticos.stdout"
+      failed_when: false
+
+    - name: Crear el usuario administrador
+      become_user: ubuntu
+      ansible.builtin.shell: "{{ cargar_env }}; {{ app_dir }}/venv/bin/python manage.py createsuperuser --noinput"
+      args:
+        chdir: "{{ src }}"
+        executable: /bin/bash
+      environment:
+        DJANGO_SUPERUSER_EMAIL: "{{ admin_email }}"
+        DJANGO_SUPERUSER_PASSWORD: "{{ admin_password }}"
+      register: admin
+      changed_when: admin.rc == 0
+      failed_when: admin.rc != 0 and 'already' not in (admin.stderr + admin.stdout)
+      no_log: true            # no mostrar la contrasena en pantalla
+
+    - name: Instalar el servicio de Django (plantilla django.service.j2)
+      ansible.builtin.template:
+        src: plantillas/django.service.j2
+        dest: /etc/systemd/system/django.service
+      notify: Reiniciar Django
+
+    - name: Encender Django y dejarlo activado al arrancar
+      ansible.builtin.systemd:
+        name: django
+        state: started
+        enabled: true
+        daemon_reload: true
+
+  handlers:
+    - name: Reiniciar Django
+      ansible.builtin.systemd:
+        name: django
+        state: restarted
+        daemon_reload: true

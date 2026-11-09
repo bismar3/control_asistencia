@@ -1,0 +1,16 @@
+# Inventario de Ansible - GENERADO por Terraform (no editar a mano)
+
+[db]
+servidor-db ansible_host=${db_publica} ip_privada=${db_privada}
+
+[backend]
+servidor-backend ansible_host=${backend_publica} ip_privada=${backend_privada}
+
+[frontend]
+servidor-frontend ansible_host=${frontend_publica} ip_privada=${frontend_privada}
+
+[all:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=~/.ssh/ansible_selena
+ansible_ssh_common_args='-o StrictHostKeyChecking=accept-new'
+ansible_python_interpreter=/usr/bin/python3

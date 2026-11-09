@@ -1,0 +1,100 @@
+# =====================================================================
+# PLAYBOOK 3: servidor FRONTEND (Nginx + React)
+# Compila React y reenvia la API al servidor backend.
+# =====================================================================
+- name: Configurar el servidor FRONTEND (Nginx + React)
+  hosts: frontend
+  become: true
+
+  vars:
+    repo_git: https://github.com/bismar3/control_asistencia.git
+    rama_git: main
+    carpeta_front: /opt/repo/frontend
+    # IP privada del backend, leida del inventario
+    backend_host: "{{ hostvars['servidor-backend'].ip_privada }}"
+    puerto_backend: 8000
+
+  tasks:
+    - name: Zona horaria de Bolivia
+      community.general.timezone:
+        name: America/La_Paz
+
+    - name: Memoria extra (swap de 1 GB) para poder compilar React
+      ansible.builtin.shell: |
+        fallocate -l 1G /swapfile
+        chmod 600 /swapfile
+        mkswap /swapfile
+        swapon /swapfile
+        echo '/swapfile none swap sw 0 0' >> /etc/fstab
+      args:
+        creates: /swapfile
+
+    - name: Instalar Nginx y herramientas
+      ansible.builtin.apt:
+        name:
+          - nginx
+          - git
+          - curl
+          - ca-certificates
+        update_cache: true
+
+    - name: Instalar Node.js 22
+      ansible.builtin.shell: |
+        curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+        apt-get install -y nodejs
+      args:
+        creates: /usr/bin/node    # solo si Node.js NO esta instalado
+
+    - name: Descargar el codigo desde GitHub
+      ansible.builtin.git:
+        repo: "{{ repo_git }}"
+        dest: /opt/repo
+        version: "{{ rama_git }}"
+        depth: 1
+
+    - name: Instalar las dependencias de React (npm)
+      ansible.builtin.shell: |
+        if [ -f package-lock.json ]; then npm ci; else npm install; fi
+      args:
+        chdir: "{{ carpeta_front }}"
+        creates: "{{ carpeta_front }}/node_modules"
+
+    - name: Compilar React (npm run build)
+      ansible.builtin.command: npm run build
+      args:
+        chdir: "{{ carpeta_front }}"
+        creates: "{{ carpeta_front }}/dist/index.html"
+
+    - name: Crear la carpeta publica de Nginx
+      ansible.builtin.file:
+        path: /var/www/app
+        state: directory
+        owner: www-data
+        group: www-data
+
+    - name: Publicar React en Nginx
+      ansible.builtin.copy:
+        src: "{{ carpeta_front }}/dist/"
+        dest: /var/www/app/
+        remote_src: true          # copiar dentro del mismo servidor
+        owner: www-data
+        group: www-data
+      notify: Recargar Nginx
+
+    - name: Configurar Nginx (plantilla nginx.conf.j2)
+      ansible.builtin.template:
+        src: plantillas/nginx.conf.j2
+        dest: /etc/nginx/sites-available/default
+      notify: Recargar Nginx
+
+    - name: Encender Nginx y dejarlo activado al arrancar
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Recargar Nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded

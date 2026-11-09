@@ -1,0 +1,8 @@
+# =====================================================================
+# PLAYBOOK PRINCIPAL: configura los 3 servidores EN ORDEN
+#   1. Base de datos  ->  2. Backend  ->  3. Frontend
+# Uso: ansible-playbook -i inventario.ini sitio.yml
+# =====================================================================
+- import_playbook: 01-base-de-datos.yml
+- import_playbook: 02-backend.yml
+- import_playbook: 03-frontend.yml
